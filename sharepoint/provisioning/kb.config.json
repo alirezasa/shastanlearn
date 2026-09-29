@@ -1,0 +1,32 @@
+{
+  "SiteUrl": "http://srv-shp-web",
+  "Zone": "Default",
+  "EnableAnonymousOnWebApplication": true,
+  "EnableLockdownMode": true,
+  "SetWelcomePage": true,
+
+  "ContentList": "KnowledgeContent",
+  "MediaLibrary": "DocLib",
+
+  "AdminsMembers": ["AD.SHASTANGROUP.IR\\KB-Admins"],
+  "HRMembers": ["AD.SHASTANGROUP.IR\\KB-HR"],
+  "ReadersMembers": ["c:0(.s|true"],
+
+  "ExistingItemsStatus": "Published",
+  "ExistingItemsVisibility": "Public",
+  "DefaultVisibility": "Public",
+
+  "Categories": [
+    { "Title": "منابع انسانی", "Icon": "users", "Color": "#008000", "Description": "قوانین، فرایندها و خدمات منابع انسانی" },
+    { "Title": "آموزش و توسعه", "Icon": "graduation", "Color": "#7c3aed", "Description": "دوره‌ها، کارگاه‌ها و مسیرهای یادگیری" },
+    { "Title": "فناوری اطلاعات", "Icon": "cpu", "Color": "#0284c7", "Description": "راهنمای سامانه‌ها و امنیت اطلاعات" },
+    { "Title": "مدیریت دانش", "Icon": "lightbulb", "Color": "#d97706", "Description": "تجربه‌ها، درس‌آموخته‌ها و مستندسازی دانش" },
+    { "Title": "ایمنی و سلامت", "Icon": "hard-hat", "Color": "#c22c2c", "Description": "HSE، ایمنی محیط کار و سلامت کارکنان" },
+    { "Title": "رهبری و مدیریت", "Icon": "target", "Color": "#0d9488", "Description": "مهارت‌های مدیریتی و رهبری تیم" }
+  ],
+
+  "SiteTitle": "پایگاه دانش شستان",
+  "SiteSubtitle": "شرکت سرمایه‌گذاری تجاری شستان",
+  "CommentModeration": "Post",
+  "NotifyEmails": ""
+}
