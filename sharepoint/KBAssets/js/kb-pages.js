@@ -72,11 +72,7 @@
           <div id="kb-videos">${ui.skeletonCards(4)}</div>
         </section>` : ''}
 
-        ${s.user.anonymous ? html`<section class="kb-section"><div class="kb-cta">
-          <span class="kb-cta-icon">${icon('lock')}</span>
-          <div class="kb-grow"><h3>محتوای ویژه‌ی کارکنان${st.privateCount ? html` (${U.faNum(st.privateCount)} مورد)` : ''}</h3><p>بخشی از دانش سازمانی فقط برای کارکنان منتشر شده است. با نام کاربری و رمز عبور شبکه (ad.shastangroup.ir) وارد شوید.</p></div>
-          <a class="kb-btn kb-btn-white kb-btn-lg" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود کارکنان</a>
-        </div></section>` : ''}
+        
 
         <section class="kb-section" style="display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
           <div class="kb-card kb-card-pad"><h3 class="kb-box-title"><span class="kb-row">${icon('flame')}پربازدیدترین‌ها</span><a class="kb-more" href="${KB.url('browse', { sort: 'views' })}">همه</a></h3><div id="kb-popular">${raw('<div class="kb-skel" style="height:280px"></div>')}</div></div>
