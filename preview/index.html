@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<!-- پیش‌نمایش محلی (بدون شیرپوینت) — داده‌ها نمایشی‌اند و در localStorage مرورگر نگه‌داری می‌شوند.
+     اجرا: node tools/serve.mjs  →  http://localhost:8080/preview/index.html -->
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#008000">
+  <title>پایگاه دانش شستان</title>
+  <link rel="icon" type="image/svg+xml" href="../sharepoint/KBAssets/img/logo-mark.svg">
+  <link rel="stylesheet" href="../sharepoint/KBAssets/css/kb.css">
+</head>
+<body class="kb-body">
+  <div id="kb-app">
+    <a class="kb-sr kb-skip" href="#kb-main">پرش به محتوای اصلی</a>
+    <div data-kb-slot="header"></div>
+    <main id="kb-main" class="kb-main" tabindex="-1"><div data-kb-page="home"></div></main>
+    <div data-kb-slot="footer"></div>
+  </div>
+  <script src="../sharepoint/KBAssets/js/kb-icons.js"></script>
+  <script src="kb-mock.js"></script>
+  <script src="../sharepoint/KBAssets/js/kb-core.js"></script>
+  <script src="../sharepoint/KBAssets/js/kb-ui.js"></script>
+  <script src="../sharepoint/KBAssets/js/kb-pages.js"></script>
+</body>
+</html>

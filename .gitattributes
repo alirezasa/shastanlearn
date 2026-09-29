@@ -1,2 +1,11 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+# فایل‌های ASP.NET و PowerShell با UTF-8 همراه BOM ذخیره شده‌اند (لازم برای متن فارسی روی ویندوز)
+*.aspx text eol=crlf
+*.master text eol=crlf
+*.ashx text eol=crlf
+*.ps1 text eol=crlf
+*.woff binary
+*.woff2 binary
+*.png binary
+*.webp binary

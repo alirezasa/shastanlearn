@@ -1,0 +1,89 @@
+﻿<%@ Master Language="C#" %>
+<%@ Register TagPrefix="SharePoint" Namespace="Microsoft.SharePoint.WebControls" Assembly="Microsoft.SharePoint, Version=16.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c" %>
+<%@ Register TagPrefix="WebPartPages" Namespace="Microsoft.SharePoint.WebPartPages" Assembly="Microsoft.SharePoint, Version=16.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c" %>
+<%--
+  مستر پیج پایگاه دانش شستان — SharePoint Server 2019
+  فقط صفحات پایگاه دانش (KBPages / KBPanel) از این مستر پیج استفاده می‌کنند؛ مستر پیج اصلی سایت تغییر نمی‌کند.
+  {{site}} و {{v}} هنگام بارگذاری توسط Deploy-KBFiles.ps1 با مسیر سایت و نسخه جایگزین می‌شوند.
+  هدر، منو و فوتر با JavaScript (kb-ui.js) ساخته می‌شوند تا صفحات شیرپوینت و پیش‌نمایش محلی یکسان باشند.
+  فرم سرور شیرپوینت (ScriptManager، FormDigest) جدا از محتوای پایگاه دانش است؛ فرم تو در تو در HTML مجاز نیست.
+--%>
+<!DOCTYPE html>
+<SharePoint:SPHtmlTag runat="server" id="SPHtmlTag" dir="rtl">
+<head runat="server">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#008000">
+  <SharePoint:RobotsMetaTag runat="server" />
+  <SharePoint:PageTitle runat="server"><asp:ContentPlaceHolder ID="PlaceHolderPageTitle" runat="server">پایگاه دانش</asp:ContentPlaceHolder></SharePoint:PageTitle>
+  <SharePoint:StartScript runat="server" />
+  <SharePoint:CssLink runat="server" Version="15" />
+  <SharePoint:ScriptLink language="javascript" name="core.js" OnDemand="true" runat="server" Localizable="false" />
+  <SharePoint:ScriptLink language="javascript" name="sp.js" OnDemand="true" runat="server" Localizable="false" />
+  <SharePoint:CustomJSUrl runat="server" />
+  <SharePoint:SoapDiscoveryLink runat="server" />
+  <asp:ContentPlaceHolder ID="PlaceHolderAdditionalPageHead" runat="server" />
+  <SharePoint:DelegateControl runat="server" ControlId="AdditionalPageHead" AllowMultipleControls="true" />
+  <link rel="icon" type="image/svg+xml" href="{{site}}/KBAssets/img/logo-mark.svg">
+  <link rel="preload" href="{{site}}/KBAssets/fonts/DanaFaNum-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{site}}/KBAssets/fonts/DanaFaNum-Bold.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{site}}/KBAssets/css/kb.css?v={{v}}">
+  <script>window.KB_SITE = '{{site}}';</script>
+</head>
+<body class="kb-body">
+  <SharePoint:ImageLink runat="server" />
+  <SharePoint:SharePointForm runat="server" CssClass="kb-sp-form" onsubmit="if (typeof(_spFormOnSubmitWrapper) != 'undefined') {return _spFormOnSubmitWrapper();} else {return true;}">
+    <asp:ScriptManager ID="ScriptManager" runat="server" EnablePageMethods="false" EnablePartialRendering="true" EnableScriptGlobalization="false" EnableScriptLocalization="true" />
+    <WebPartPages:SPWebPartManager runat="server" />
+    <SharePoint:FormDigest runat="server" />
+    <asp:Panel runat="server" Visible="false">
+      <asp:ContentPlaceHolder ID="PlaceHolderFormDigest" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderSearchArea" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderTitleBreadcrumb" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderGlobalNavigation" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderGlobalNavigationSiteMap" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderPageTitleInTitleArea" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderPageDescription" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderPageImage" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderSiteName" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderTopNavBar" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderHorizontalNav" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderLeftNavBar" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderLeftNavBarTop" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderLeftNavBarDataSource" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderLeftActions" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderCalendarNavigator" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderQuickLaunchTop" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderQuickLaunchBottom" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderBodyAreaClass" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderTitleAreaClass" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderTitleAreaSeparator" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderTitleLeftBorder" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderTitleRightMargin" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderBodyLeftBorder" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderBodyRightMargin" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderNavSpacer" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderMiniConsole" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderPageDescriptionRowAttr" runat="server" />
+      <asp:ContentPlaceHolder ID="PlaceHolderPageDescriptionRowAttr2" runat="server" />
+      <asp:ContentPlaceHolder ID="WSSDesignConsole" runat="server" />
+      <asp:ContentPlaceHolder ID="SPNavigation" runat="server" />
+    </asp:Panel>
+  </SharePoint:SharePointForm>
+
+  <div id="kb-app">
+    <a class="kb-sr kb-skip" href="#kb-main">پرش به محتوای اصلی</a>
+    <div data-kb-slot="header"></div>
+    <main id="kb-main" class="kb-main" tabindex="-1">
+      <asp:ContentPlaceHolder ID="PlaceHolderMain" runat="server" />
+    </main>
+    <div data-kb-slot="footer"></div>
+  </div>
+  <asp:ContentPlaceHolder ID="PlaceHolderUtilityContent" runat="server" />
+  <script src="{{site}}/KBAssets/js/kb-icons.js?v={{v}}"></script>
+  <script src="{{site}}/KBAssets/js/kb-core.js?v={{v}}"></script>
+  <script src="{{site}}/KBAssets/js/kb-ui.js?v={{v}}"></script>
+  <script src="{{site}}/KBAssets/js/kb-pages.js?v={{v}}"></script>
+  <asp:ContentPlaceHolder ID="PlaceHolderKBScripts" runat="server" />
+</body>
+</SharePoint:SPHtmlTag>
