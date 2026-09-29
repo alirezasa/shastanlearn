@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>پرتال دانش سازمانی</title>
+ 
+  <link rel="stylesheet" href="./asset/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="index.html">
+        <span class="logo-mark"></span>
+        <span>پرتال دانش</span>
+      </a>
+
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="جستجو در محتوا..." />
+        <span class="search-icon">🔍</span>
+      </div>
+
+      <div class="header-actions">
+        <button class="notif-btn" id="notifBtn" aria-label="اعلان‌ها">
+          🔔<span class="notif-badge">3</span>
+        </button>
+        <div class="notif-panel" id="notifPanel">
+          <div class="notif-head">اعلان‌ها</div>
+          <ul>
+            <li><b>مقاله جدید</b> در دسته فناوری منتشر شد.</li>
+            <li>پادکست هفتگی به‌روزرسانی شد.</li>
+            <li>گزارش تصویری همایش اضافه شد.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="slider" id="slider">
+    <div class="slides" id="slides">
+      <a class="slide" href="post.html" style="background-image:url('https://picsum.photos/id/180/1200/400')">
+        <div class="slide-cap"><span class="badge">مقاله</span><h2>آینده تحول دیجیتال در سازمان‌ها</h2></div>
+      </a>
+      <a class="slide" href="post.html" style="background-image:url('https://picsum.photos/id/119/1200/400')">
+        <div class="slide-cap"><span class="badge">ویدیو</span><h2>کارگاه مدیریت دانش</h2></div>
+      </a>
+      <a class="slide" href="post.html" style="background-image:url('https://picsum.photos/id/48/1200/400')">
+        <div class="slide-cap"><span class="badge">گزارش</span><h2>گزارش تصویری همایش سالانه</h2></div>
+      </a>
+    </div>
+    <button class="slider-nav prev" id="prevBtn">‹</button>
+    <button class="slider-nav next" id="nextBtn">›</button>
+    <div class="dots" id="dots"></div>
+  </section>
+
+  <main class="container layout">
+    <aside class="sidebar">
+      <div class="card-box">
+        <h3>دسته‌بندی‌ها</h3>
+        <ul class="cat-list">
+          <li><a href="#">فناوری اطلاعات</a></li>
+          <li><a href="#">مدیریت دانش</a></li>
+          <li><a href="#">منابع انسانی</a></li>
+          <li><a href="#">آموزش</a></li>
+          <li><a href="#">گزارش‌های تصویری</a></li>
+        </ul>
+      </div>
+      <div class="card-box">
+        <h3>پربازدیدترین‌ها</h3>
+        <ul class="mini-list">
+          <li><a href="post.html">راهنمای امنیت اطلاعات</a></li>
+          <li><a href="post.html">پادکست رهبری سازمانی</a></li>
+          <li><a href="post.html">ویدیو معرفی سامانه جدید</a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <section class="content">
+      <h2 class="section-title">جدیدترین محتوا</h2>
+      <div class="grid" id="postGrid">
+
+        <article class="post-card" data-title="آینده تحول دیجیتال">
+          <a href="post.html" class="thumb video"
+            style="background-image:url('https://picsum.photos/id/0/600/360')">
+            <span class="type-badge">ویدیو</span>
+            <span class="play">▶</span>
+          </a>
+          <div class="post-body">
+            <h3><a href="post.html">آینده تحول دیجیتال در سازمان‌ها</a></h3>
+            <p>نگاهی به مسیر دیجیتالی‌شدن فرآیندها و نقش داده در تصمیم‌گیری.</p>
+            <div class="meta"><span>✍ مریم احمدی</span><span>📅 ۱۴۰۵/۰۳/۰۸</span><span>👁 ۱٬۲۴۰</span></div>
+          </div>
+        </article>
+
+        <article class="post-card" data-title="کارگاه مدیریت دانش">
+          <a href="post.html" class="thumb"
+            style="background-image:url('https://picsum.photos/id/20/600/360')">
+            <span class="type-badge">مقاله</span>
+          </a>
+          <div class="post-body">
+            <h3><a href="post.html">اصول کارگاه مدیریت دانش</a></h3>
+            <p>چگونه دانش ضمنی کارکنان را به دارایی سازمانی تبدیل کنیم.</p>
+            <div class="meta"><span>✍ رضا کریمی</span><span>📅 ۱۴۰۵/۰۳/۰۵</span><span>👁 ۸۹۰</span></div>
+          </div>
+        </article>
+
+        <article class="post-card" data-title="پادکست رهبری">
+          <a href="post.html" class="thumb audio"
+            style="background-image:url('https://picsum.photos/id/65/600/360')">
+            <span class="type-badge">پادکست</span>
+            <span class="play">▶</span>
+          </a>
+          <div class="post-body">
+            <h3><a href="post.html">پادکست رهبری سازمانی</a></h3>
+            <p>گفتگو با مدیران درباره چالش‌های رهبری در دوران تغییر.</p>
+            <div class="meta"><span>✍ سارا موسوی</span><span>📅 ۱۴۰۵/۰۳/۰۲</span><span>👁 ۶۷۰</span></div>
+          </div>
+        </article>
+
+        <article class="post-card" data-title="گزارش تصویری همایش">
+          <a href="post.html" class="thumb"
+            style="background-image:url('https://picsum.photos/id/42/600/360')">
+            <span class="type-badge">گزارش</span>
+          </a>
+          <div class="post-body">
+            <h3><a href="post.html">گزارش تصویری همایش سالانه</a></h3>
+            <p>مرور لحظات کلیدی همایش و سخنرانی‌های شاخص امسال.</p>
+            <div class="meta"><span>✍ تیم رسانه</span><span>📅 ۱۴۰۵/۰۲/۲۸</span><span>👁 ۱٬۵۳۰</span></div>
+          </div>
+        </article>
+
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">© ۱۴۰۵ پرتال دانش سازمانی — تمامی حقوق محفوظ است.</div>
+  </footer>
+
+  <script src="asset/script.js"></script>
+</body>
+</html>
