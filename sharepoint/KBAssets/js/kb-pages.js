@@ -14,7 +14,7 @@
     var m = ui.modal({
       title: 'ورود لازم است', icon: 'lock',
       body: html`<p style="font-size:15px;line-height:2">${text || 'برای این کار ابتدا با حساب سازمانی وارد شوید.'}</p>`,
-      foot: html`<a class="kb-btn kb-btn-brand" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود کارکنان</a><button type="button" class="kb-btn kb-btn-ghost" data-kb-close>بعداً</button>`
+      foot: html`<a class="kb-btn kb-btn-brand" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود</a><button type="button" class="kb-btn kb-btn-ghost" data-kb-close>بعداً</button>`
     });
     return m;
   }
@@ -248,7 +248,7 @@
     function load() {
       renderActive();
       if (st.saved && KB.state.user.anonymous) {
-        U.mount(results, ui.empty('bookmark', 'برای دیدن ذخیره‌شده‌ها وارد شوید', 'فهرست ذخیره‌شده‌ها مخصوص هر کاربر است.', html`<a class="kb-btn kb-btn-brand" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود کارکنان</a>`));
+        U.mount(results, ui.empty('bookmark', 'برای دیدن ذخیره‌شده‌ها وارد شوید', 'فهرست ذخیره‌شده‌ها مخصوص هر کاربر است.', html`<a class="kb-btn kb-btn-brand" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود</a>`));
         U.$('#kb-count').textContent = '';
         return;
       }
@@ -363,7 +363,7 @@
   }
 
   content.init = function (el) {
-    var id = Number(U.qs('id'));
+    var id = Number(U.qs('cid') || U.qs('id'));
     var preview = U.qs('preview') === '1';
     if (!id) { U.mount(el, html`<div class="kb-container">${ui.empty('help', 'محتوا مشخص نشده است', '', html`<a class="kb-btn kb-btn-brand" href="${KB.url('browse')}">مرور محتوا</a>`)}</div>`); return; }
     U.mount(el, html`<div class="kb-container kb-article-wrap"><div class="kb-article" style="padding:32px"><div class="kb-skel" style="height:34px;width:60%"></div><div class="kb-skel kb-skel-line" style="width:90%;margin-top:18px"></div><div class="kb-skel" style="height:360px;margin-top:22px"></div><div class="kb-skel kb-skel-line"></div><div class="kb-skel kb-skel-line" style="width:80%"></div></div><div class="kb-skel" style="height:300px;border-radius:14px"></div></div>`);
@@ -372,7 +372,7 @@
         U.mount(el, html`<div class="kb-container" style="padding-top:28px"><div class="kb-article kb-lock-screen">
           <div class="kb-empty-icon">${icon('lock')}</div><h2 style="font-size:20px">این محتوا ویژه‌ی کارکنان است</h2>
           <p class="kb-muted" style="margin:8px auto 20px;max-width:460px">برای مطالعه‌ی این مطلب با نام کاربری و رمز عبور شبکه‌ی سازمان (ad.shastangroup.ir) وارد شوید.</p>
-          <a class="kb-btn kb-btn-brand kb-btn-lg" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود کارکنان</a>
+          <a class="kb-btn kb-btn-brand kb-btn-lg" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود</a>
           <p style="margin-top:14px"><a class="kb-more" href="${KB.url('browse')}">مشاهده‌ی محتوای عمومی</a></p></div></div>`);
       } else if (e.status === 404) {
         U.mount(el, html`<div class="kb-container" style="padding-top:28px">${ui.empty('search', 'محتوا یافت نشد', 'ممکن است این مطلب حذف یا از حالت انتشار خارج شده باشد.', html`<a class="kb-btn kb-btn-brand" href="${KB.url('browse')}">${icon('library')}مرور همه‌ی محتوا</a>`)}</div>`);
@@ -611,7 +611,192 @@
     load();
   }
 
+  /* ==================================================================== ثبت‌نام */
+  var register = {};
+  var USER_RX = /^[a-z][a-z0-9._-]{2,19}$/;
+  function normMobile(v) {
+    var m = U.normalizeFa(v).replace(/[\s\-()]/g, '');
+    if (m.indexOf('+98') === 0) m = '0' + m.slice(3);
+    else if (m.indexOf('0098') === 0) m = '0' + m.slice(4);
+    else if (m.indexOf('98') === 0 && m.length === 12) m = '0' + m.slice(2);
+    else if (m.length === 10 && m.charAt(0) === '9') m = '0' + m;
+    return m;
+  }
+  /** همان قواعد سرور (پیچیدگی رمز Active Directory) */
+  function pwChecks(pw, userName, first, last) {
+    var classes = [/[A-Z]/, /[a-z]/, /[0-9]/, /[^A-Za-z0-9]/].filter(function (r) { return r.test(pw); }).length;
+    var lower = pw.toLowerCase();
+    var nameParts = (first + ' ' + last).split(/[\s.-]+/).filter(function (p) { return p.length >= 3; });
+    return [
+      { ok: pw.length >= 8, text: 'دست‌کم ۸ نویسه' },
+      { ok: classes >= 3, text: 'سه مورد از: حرف بزرگ، حرف کوچک، عدد، نماد (انگلیسی)' },
+      { ok: !!pw && !/[^\x20-\x7e]/.test(pw), text: 'فقط حروف و نمادهای صفحه‌کلید انگلیسی' },
+      { ok: !!pw && !(userName.length >= 3 && lower.indexOf(userName.toLowerCase()) >= 0) && !nameParts.some(function (p) { return lower.indexOf(p.toLowerCase()) >= 0; }), text: 'شامل نام کاربری یا نام شما نباشد' }
+    ];
+  }
+  register.init = function (el) {
+    document.title = 'ثبت‌نام | ' + KB.setting('SiteTitle', 'پایگاه دانش شستان');
+    var enabled = (KB.state.settings || {}).RegistrationEnabled === 'true';
+    var head = html`<div class="kb-page-head"><div class="kb-container"><nav class="kb-breadcrumb" aria-label="مسیر"><a href="${KB.url('home')}">خانه</a>${icon('chevron-left')}<span>ثبت‌نام</span></nav>
+      <h1>${icon('user-plus')}ثبت‌نام در پایگاه دانش</h1><p>درخواست ایجاد حساب کاربری؛ پس از تأیید مدیر سامانه می‌توانید وارد شوید.</p></div></div>`;
+    if (!KB.state.user.anonymous) {
+      U.mount(el, html`${head}<div class="kb-container">${ui.empty('user-check', 'شما وارد شده‌اید', 'با حساب «' + KB.state.user.name + '» در پایگاه دانش هستید.', html`<a class="kb-btn kb-btn-brand" href="${KB.url('home')}">${icon('home')}صفحه‌ی اصلی</a>`)}</div>`);
+      return;
+    }
+    if (!enabled) {
+      U.mount(el, html`${head}<div class="kb-container">${ui.empty('user-x', 'ثبت‌نام فعال نیست', 'در حال حاضر امکان ثبت‌نام کاربر جدید وجود ندارد. اگر حساب سازمانی دارید وارد شوید.', html`<a class="kb-btn kb-btn-brand" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود</a>`)}</div>`);
+      return;
+    }
+    U.mount(el, html`${head}<div class="kb-container">
+      <div class="kb-auth is-inline">
+        <aside class="kb-auth-side">
+          <div><h2>عضویت در پایگاه دانش شستان</h2>
+            <ul class="kb-auth-points">
+              <li><span>${icon('lock')}</span><div><b>دسترسی به محتوای ویژه</b>راهنماها، اسناد و آموزش‌هایی که فقط برای اعضا منتشر شده است</div></li>
+              <li><span>${icon('bookmark')}</span><div><b>ذخیره و پیگیری</b>فهرست شخصی مطالب برای مطالعه‌ی بعدی</div></li>
+              <li><span>${icon('messages')}</span><div><b>پرسش و نظر</b>گفت‌وگو با کارشناسان و نویسندگان</div></li>
+            </ul></div>
+          <div><b style="display:block;margin-bottom:10px">مراحل</b><ol class="kb-auth-steps"><li>ثبت درخواست و دریافت کد پیگیری</li><li>بررسی توسط مدیر سامانه</li><li>ایجاد حساب کاربری سازمانی</li><li>ورود با همین نام کاربری و رمز عبور</li></ol></div>
+          <p class="kb-auth-foot">رمز عبور به‌صورت رمزنگاری‌شده نگه‌داری و پس از ایجاد حساب حذف می‌شود.</p>
+        </aside>
+        <main class="kb-auth-main"><div class="kb-auth-card">
+          <div class="kb-segment" role="tablist" style="display:flex;margin-bottom:20px">
+            <button type="button" role="tab" data-tab="form" aria-pressed="true" style="flex:1">${icon('user-plus')}ثبت‌نام</button>
+            <button type="button" role="tab" data-tab="status" aria-pressed="false" style="flex:1">${icon('search-check')}پیگیری درخواست</button>
+          </div>
+          <div data-pane="form"></div>
+          <div data-pane="status" hidden></div>
+          <p class="kb-auth-links" style="justify-content:center">حساب کاربری دارید؟ <a href="${KB.loginUrl()}" data-kb-login>${icon('log-in', 'kb-ico kb-ico-sm')}ورود</a></p>
+        </div></main>
+      </div></div>`);
+    var formPane = U.$('[data-pane="form"]', el), statusPane = U.$('[data-pane="status"]', el);
+    function tab(name) {
+      U.$$('[data-tab]', el).forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-tab') === name)); });
+      formPane.hidden = name !== 'form'; statusPane.hidden = name !== 'status';
+    }
+    U.on(el, 'click', '[data-tab]', function (e, b) { tab(b.getAttribute('data-tab')); });
+
+    function field(name, label, input, hint) {
+      return html`<div class="kb-field" data-field="${name}"><label class="kb-label" for="r-${name}">${label}</label>${input}${hint ? html`<span class="kb-hint">${hint}</span>` : ''}<span class="kb-error" data-err="${name}" hidden></span></div>`;
+    }
+    function drawForm() {
+      U.mount(formPane, html`<form id="kb-reg" novalidate autocomplete="off">
+        <div class="kb-grid-2">
+          ${field('firstName', 'نام', html`<input id="r-firstName" class="kb-input" name="firstName" maxlength="50" required autocomplete="given-name">`)}
+          ${field('lastName', 'نام خانوادگی', html`<input id="r-lastName" class="kb-input" name="lastName" maxlength="50" required autocomplete="family-name">`)}
+        </div>
+        ${field('userName', 'نام کاربری', html`<div class="kb-auth-input">${icon('user')}<input id="r-userName" class="kb-input kb-input-ltr" name="userName" maxlength="20" required autocomplete="username" spellcheck="false" autocapitalize="off"></div>`, '۳ تا ۲۰ نویسه: حروف کوچک انگلیسی، عدد، نقطه، - یا _ (مثال: a.rezaei)')}
+        ${field('password', 'رمز عبور', html`<div class="kb-auth-input">${icon('key')}<input id="r-password" class="kb-input kb-input-ltr" name="password" type="password" maxlength="64" required autocomplete="new-password"><button type="button" class="kb-auth-eye" data-eye aria-label="نمایش رمز عبور">${icon('eye')}</button></div>
+          <div class="kb-pw-meter" data-meter data-level="0"><i></i><i></i><i></i><i></i></div><ul class="kb-pw-rules" data-rules></ul>`)}
+        ${field('password2', 'تکرار رمز عبور', html`<div class="kb-auth-input">${icon('key')}<input id="r-password2" class="kb-input kb-input-ltr" name="password2" type="password" maxlength="64" required autocomplete="new-password"></div>`)}
+        ${field('mobile', 'شماره‌ی همراه', html`<div class="kb-auth-input">${icon('phone')}<input id="r-mobile" class="kb-input kb-input-ltr" name="mobile" inputmode="tel" maxlength="16" required placeholder="09121234567" autocomplete="tel"></div>`)}
+        ${field('company', html`نام شرکت <small>(اختیاری)</small>`, html`<div class="kb-auth-input">${icon('building')}<input id="r-company" class="kb-input" name="company" maxlength="100" autocomplete="organization"></div>`)}
+        ${field('captchaAnswer', 'کد امنیتی', html`<div class="kb-captcha"><img data-cap-img alt="کد امنیتی"><button type="button" class="kb-btn kb-btn-ghost kb-btn-icon" data-cap-new aria-label="کد جدید" title="کد جدید">${icon('refresh')}</button><input id="r-captchaAnswer" class="kb-input kb-input-ltr" name="captchaAnswer" inputmode="numeric" maxlength="6" required autocomplete="off"></div>`)}
+        <div class="kb-hp" aria-hidden="true"><label>وب‌سایت<input name="website" tabindex="-1" autocomplete="off"></label></div>
+        <div class="kb-alert kb-alert-error" data-form-err hidden style="margin-bottom:14px"></div>
+        <button type="submit" class="kb-btn kb-btn-brand kb-btn-lg kb-auth-submit">${icon('send')}ثبت درخواست</button>
+        <p class="kb-hint" style="text-align:center;margin-top:12px">پس از تأیید، با همین نام کاربری و رمز عبور وارد پایگاه دانش می‌شوید.</p>
+      </form>`);
+      var f = U.$('#kb-reg'), capToken = '';
+      function loadCaptcha() {
+        KB.api.captcha().then(function (c) { capToken = c.token; U.$('[data-cap-img]', f).src = c.image; f.elements.captchaAnswer.value = ''; })
+          .catch(function () { ui.toast('دریافت کد امنیتی ناموفق بود.', 'error'); });
+      }
+      loadCaptcha();
+      U.$('[data-cap-new]', f).addEventListener('click', loadCaptcha);
+      U.$('[data-eye]', f).addEventListener('click', function () {
+        var p = f.elements.password, show = p.type === 'password';
+        p.type = f.elements.password2.type = show ? 'text' : 'password';
+        this.classList.toggle('is-on', show);
+      });
+      function setErr(name, msg) {
+        var box = U.$('[data-err="' + name + '"]', f), input = f.elements[name];
+        if (box) { box.textContent = msg || ''; box.hidden = !msg; }
+        if (input) { if (msg) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid'); }
+      }
+      function drawRules() {
+        var checks = pwChecks(f.elements.password.value, f.elements.userName.value, f.elements.firstName.value, f.elements.lastName.value);
+        U.mount(U.$('[data-rules]', f), checks.map(function (c) { return html`<li class="${c.ok ? 'is-ok' : ''}">${icon(c.ok ? 'check' : 'circle-dot')}${c.text}</li>`; }));
+        var pw = f.elements.password.value;
+        var level = !pw ? 0 : checks.filter(function (c) { return c.ok; }).length + (pw.length >= 12 ? 1 : 0) - 1;
+        U.$('[data-meter]', f).setAttribute('data-level', String(Math.max(pw ? 1 : 0, Math.min(4, level))));
+        return checks.every(function (c) { return c.ok; });
+      }
+      drawRules();
+      f.elements.userName.addEventListener('input', function () {
+        var v = this.value.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+        if (v !== this.value) this.value = v;
+        drawRules();
+      });
+      ['password', 'firstName', 'lastName'].forEach(function (n) { f.elements[n].addEventListener('input', drawRules); });
+      f.addEventListener('input', function (e) { if (e.target.name) setErr(e.target.name, ''); });
+      function validate() {
+        var ok = true, v = function (n) { return f.elements[n].value.trim(); };
+        var nameRx = /^[\p{L}\p{M}\s‌\-'.]{2,50}$/u;
+        [['firstName', 'نام را وارد کنید.'], ['lastName', 'نام خانوادگی را وارد کنید.']].forEach(function (x) { if (!nameRx.test(v(x[0]))) { setErr(x[0], x[1]); ok = false; } });
+        if (!USER_RX.test(v('userName')) || /\.$|\.\./.test(v('userName'))) { setErr('userName', 'نام کاربری معتبر نیست.'); ok = false; }
+        if (!drawRules()) { setErr('password', 'رمز عبور شرایط بالا را ندارد.'); ok = false; }
+        if (f.elements.password2.value !== f.elements.password.value) { setErr('password2', 'تکرار رمز عبور یکسان نیست.'); ok = false; }
+        if (!/^09\d{9}$/.test(normMobile(v('mobile')))) { setErr('mobile', 'شماره‌ی همراه معتبر نیست (مثال: 09121234567).'); ok = false; }
+        if (!/^\d{4,6}$/.test(U.normalizeFa(v('captchaAnswer')))) { setErr('captchaAnswer', 'کد امنیتی را وارد کنید.'); ok = false; }
+        if (!ok) { var first = U.$('[aria-invalid="true"]', f); if (first) first.focus(); }
+        return ok;
+      }
+      f.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var errBox = U.$('[data-form-err]', f); errBox.hidden = true;
+        if (!validate()) return;
+        var btn = f.querySelector('[type=submit]'); ui.busy(btn, true);
+        KB.api.register({
+          firstName: f.elements.firstName.value.trim(), lastName: f.elements.lastName.value.trim(), userName: f.elements.userName.value.trim(),
+          password: f.elements.password.value, mobile: normMobile(f.elements.mobile.value), company: f.elements.company.value.trim(),
+          captchaToken: capToken, captchaAnswer: U.normalizeFa(f.elements.captchaAnswer.value.trim()), website: f.elements.website.value
+        }).then(function (r) {
+          U.mount(formPane, html`<div class="kb-done"><div class="kb-empty-icon">${icon('clipboard-check')}</div>
+            <h2 style="font-size:20px">درخواست شما ثبت شد</h2>
+            <p class="kb-muted" style="margin-top:6px">پس از بررسی مدیر سامانه، حساب کاربری شما ایجاد می‌شود. کد پیگیری را نگه دارید:</p>
+            <div class="kb-track">${r.trackingCode}</div>
+            <p class="kb-hint">وضعیت را با نام کاربری و شماره‌ی همراه از برگه‌ی «پیگیری درخواست» ببینید.</p>
+            <div class="kb-row" style="justify-content:center;margin-top:18px"><button type="button" class="kb-btn kb-btn-ghost" data-tab="status">${icon('search-check')}پیگیری درخواست</button><a class="kb-btn kb-btn-brand" href="${KB.url('home')}">${icon('home')}صفحه‌ی اصلی</a></div></div>`);
+        }).catch(function (err) {
+          ui.busy(btn, false);
+          var m = /^field:(\w+)$/.exec(err.code || '');
+          if (m && f.elements[m[1]]) { setErr(m[1], err.message); f.elements[m[1]].focus(); }
+          else { errBox.textContent = err.message; errBox.hidden = false; }
+          loadCaptcha();
+        });
+      });
+    }
+    function drawStatus() {
+      U.mount(statusPane, html`<form id="kb-reg-status" novalidate>
+        <p class="kb-muted" style="margin-bottom:14px">نام کاربری و شماره‌ی همراهی را که هنگام ثبت‌نام وارد کردید بنویسید.</p>
+        <div class="kb-field"><label class="kb-label" for="s-user">نام کاربری</label><input id="s-user" class="kb-input kb-input-ltr" name="userName" required autocomplete="username" spellcheck="false"></div>
+        <div class="kb-field"><label class="kb-label" for="s-mobile">شماره‌ی همراه</label><input id="s-mobile" class="kb-input kb-input-ltr" name="mobile" inputmode="tel" required placeholder="09121234567"></div>
+        <button type="submit" class="kb-btn kb-btn-brand kb-auth-submit">${icon('search')}بررسی وضعیت</button>
+        <div data-status-result style="margin-top:18px"></div></form>`);
+      var f = U.$('#kb-reg-status');
+      f.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var out = U.$('[data-status-result]', f), btn = f.querySelector('[type=submit]');
+        if (!f.elements.userName.value.trim() || !f.elements.mobile.value.trim()) return;
+        ui.busy(btn, true);
+        KB.api.registerStatus(f.elements.userName.value.trim().toLowerCase(), normMobile(f.elements.mobile.value)).then(function (r) {
+          ui.busy(btn, false);
+          var cls = r.status === 'Created' ? 'kb-alert-ok' : r.status === 'Rejected' ? 'kb-alert-error' : r.status === 'Approved' ? '' : 'kb-alert-warn';
+          U.mount(out, html`<div class="kb-alert ${cls}">${icon(r.status === 'Created' ? 'user-check' : r.status === 'Rejected' ? 'user-x' : 'clock')}<div>
+            <b>${r.label}</b><div class="kb-hint" style="margin:2px 0 0">کد پیگیری ${r.trackingCode} — ${U.fmtDate(r.date)}</div>
+            ${r.note ? html`<div style="margin-top:6px">دلیل: ${r.note}</div>` : ''}
+            ${r.status === 'Created' ? html`<a class="kb-btn kb-btn-brand kb-btn-sm" style="margin-top:10px" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود</a>` : ''}</div></div>`);
+        }).catch(function (err) { ui.busy(btn, false); U.mount(out, html`<div class="kb-alert kb-alert-error">${icon('alert')}<span>${err.message}</span></div>`); });
+      });
+    }
+    drawForm();
+    drawStatus();
+    if (location.hash === '#status') tab('status');
+  };
+
   KB.pages.home = home;
+  KB.pages.register = register;
   KB.pages.browse = browse;
   KB.pages.content = content;
   KB.renderBody = renderBody;

@@ -35,7 +35,9 @@ const ICONS = {
   'archive-restore': 'archive-restore', 'thumbs-up': 'thumbs-up', activity: 'activity', inbox: 'inbox', 'badge-check': 'badge-check',
   'list-checks': 'list-checks', type: 'type', 'shield': 'shield', 'heart-pulse': 'heart-pulse', 'hard-hat': 'hard-hat', factory: 'factory',
   'hand-coins': 'hand-coins', landmark: 'landmark', 'git-branch': 'git-branch', 'circle-dot': 'circle-dot', 'panel-right': 'panel-right',
-  'square-pen': 'square-pen', 'text-size': 'a-large-small', hash: 'hash', 'volume': 'volume-2', 'library': 'library-big', 'mouse-pointer': 'mouse-pointer-click'
+  'square-pen': 'square-pen', 'text-size': 'a-large-small', hash: 'hash', 'volume': 'volume-2', 'library': 'library-big', 'mouse-pointer': 'mouse-pointer-click',
+  'user-plus': 'user-plus', 'user-check': 'user-check', 'user-x': 'user-x', key: 'key-round', phone: 'smartphone', 'clipboard-check': 'clipboard-check',
+  terminal: 'square-terminal', 'search-check': 'search-check'
 };
 
 const out = {};

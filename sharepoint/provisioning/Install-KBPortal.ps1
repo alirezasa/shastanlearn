@@ -381,7 +381,28 @@ Set-Exclusive $commentsList @{ 'KB-Admins' = $roleFull; 'KB-HR' = $roleEditor } 
 Set-Exclusive $reactionsList @{ 'KB-Admins' = $roleFull; 'KB-HR' = $roleRead } $false
 Set-Exclusive $settingsList @{ 'KB-Admins' = $roleFull; 'KB-HR' = $roleRead } $false
 Set-Exclusive $auditList @{ 'KB-Admins' = $roleFull; 'KB-HR' = $roleRead } $false
-Write-Ok 'KBCategories، KBComments، KBReactions، KBSettings، KBAuditLog (بدون دسترسی مستقیم کاربران و ناشناس)'
+# درخواست‌های ثبت‌نام (رمز عبور رمزنگاری‌شده) — فقط مدیران سامانه؛ ثبت از طریق KBApi.ashx
+$regList = Ensure-SimpleList 'KBRegistrations' 'درخواست‌های ثبت‌نام کاربران پایگاه دانش' @(
+  @{ Name = 'Title'; Label = 'نام و نام خانوادگی' },
+  @{ Name = 'FirstName'; Type = 'Text'; Label = 'نام' },
+  @{ Name = 'LastName'; Type = 'Text'; Label = 'نام خانوادگی' },
+  @{ Name = 'UserName'; Type = 'Text'; Label = 'نام کاربری'; Indexed = $true },
+  @{ Name = 'Mobile'; Type = 'Text'; Label = 'شماره‌ی همراه'; Indexed = $true },
+  @{ Name = 'Company'; Type = 'Text'; Label = 'نام شرکت' },
+  @{ Name = 'PasswordEnc'; Type = 'Note'; Label = 'رمز عبور (رمزنگاری‌شده)' },
+  @{ Name = 'Status'; Type = 'Choice'; Label = 'وضعیت'; Choices = @('Pending', 'Approved', 'Created', 'Rejected'); Default = 'Pending'; Indexed = $true },
+  @{ Name = 'TrackingCode'; Type = 'Text'; Label = 'کد پیگیری' },
+  @{ Name = 'ReviewNote'; Type = 'Note'; Label = 'توضیح بررسی' },
+  @{ Name = 'ReviewedBy'; Type = 'Text'; Label = 'بررسی‌کننده' },
+  @{ Name = 'ReviewedOn'; Type = 'DateTime'; Label = 'تاریخ بررسی' },
+  @{ Name = 'AdAccount'; Type = 'Text'; Label = 'حساب AD' },
+  @{ Name = 'AdError'; Type = 'Note'; Label = 'خطای AD' },
+  @{ Name = 'SourceIp'; Type = 'Text'; Label = 'IP' })
+Set-Exclusive $regList @{ 'KB-Admins' = $roleFull } $false
+# ستون رمز عبور در فرم‌ها و نماهای شیرپوینت نمایش داده نشود
+$pwField = $regList.Fields.GetFieldByInternalName('PasswordEnc')
+$pwField.ShowInDisplayForm = $false; $pwField.ShowInEditForm = $false; $pwField.ShowInNewForm = $false; $pwField.ShowInViewForms = $false; $pwField.Update()
+Write-Ok 'KBCategories، KBComments، KBReactions، KBSettings، KBAuditLog، KBRegistrations (بدون دسترسی مستقیم کاربران و ناشناس)'
 
 # ---------------------------------------------------------------- ۶. کتابخانه‌ها
 Write-Step 'کتابخانه‌ها'
@@ -444,6 +465,16 @@ Set-Setting 'CommentsEnabled' 'true' $false
 Set-Setting 'CommentModeration' $config.CommentModeration $false
 Set-Setting 'NotifyEmails' $config.NotifyEmails $false
 Set-Setting 'DefaultVisibility' $config.DefaultVisibility $false
+# ثبت‌نام و Active Directory (فقط اگر قبلاً از پنل تنظیم نشده باشند)
+$reg = $config.Registration
+if ($reg) {
+  Set-Setting 'RegistrationEnabled' ([string]$reg.Enabled).ToLower() $false
+  Set-Setting 'ADMode' $reg.ADMode $false
+  Set-Setting 'ADDomain' $reg.ADDomain $false
+  Set-Setting 'ADContainer' $reg.ADContainer $false
+  Set-Setting 'ADUpnSuffix' $reg.ADUpnSuffix $false
+  Set-Setting 'ADGroup' $reg.ADGroup $false
+}
 Write-Ok 'KBSettings (نگاشت ستون‌ها: FieldMap)'
 
 $i = 0

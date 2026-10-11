@@ -754,3 +754,64 @@ body.kb-body { overflow: visible !important; height: auto !important; }
 @media (prefers-reduced-motion: reduce) {
   #kb-app *, #kb-app *::before, #kb-app *::after { animation: none !important; transition: none !important; }
 }
+
+/* ====================================================================
+   ورود و ثبت‌نام (login.aspx و KBPages/register.aspx)
+   ==================================================================== */
+#kb-app .kb-auth { display: grid; grid-template-columns: 1fr; min-height: 100vh; background: #fff; }
+@media (min-width: 1000px) { #kb-app .kb-auth { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); } }
+#kb-app .kb-auth.is-inline { min-height: 0; max-width: 1140px; margin: 28px auto 0; border-radius: 22px; overflow: hidden; box-shadow: var(--kb-shadow); border: 1px solid var(--kb-line-2); }
+#kb-app .kb-auth-side { position: relative; display: none; flex-direction: column; justify-content: space-between; gap: 32px; padding: 44px 40px; color: #fff; overflow: hidden;
+  background: radial-gradient(circle at 15% 15%, rgba(255,255,255,.12) 0, transparent 35%), radial-gradient(circle at 90% 95%, rgba(194,44,44,.4) 0, transparent 45%), linear-gradient(150deg, #005a00 0%, #008000 55%, #0a5f2a 100%); }
+@media (min-width: 1000px) { #kb-app .kb-auth-side { display: flex; } }
+#kb-app .kb-auth-side::before { content: ''; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px); background-size: 40px 40px; -webkit-mask-image: linear-gradient(to bottom, #000 10%, transparent 85%); mask-image: linear-gradient(to bottom, #000 10%, transparent 85%); }
+#kb-app .kb-auth-side > * { position: relative; }
+#kb-app .kb-auth-side h2 { font-size: 26px; line-height: 1.6; margin-bottom: 22px; }
+#kb-app .kb-auth-points { display: flex; flex-direction: column; gap: 18px; }
+#kb-app .kb-auth-points li { display: flex; gap: 14px; align-items: flex-start; font-size: 13.5px; line-height: 1.9; color: rgba(255,255,255,.82); }
+#kb-app .kb-auth-points li > span { width: 42px; height: 42px; border-radius: 13px; background: rgba(255,255,255,.15); display: grid; place-items: center; flex-shrink: 0; color: #fff; }
+#kb-app .kb-auth-points b { display: block; color: #fff; font-size: 15px; }
+#kb-app .kb-auth-steps { counter-reset: kbstep; display: flex; flex-direction: column; gap: 12px; }
+#kb-app .kb-auth-steps li { counter-increment: kbstep; display: flex; gap: 12px; align-items: center; font-size: 14px; }
+#kb-app .kb-auth-steps li::before { content: counter(kbstep, persian); width: 30px; height: 30px; border-radius: 50%; background: #fff; color: var(--kb-brand-700); font-weight: 700; display: grid; place-items: center; flex-shrink: 0; }
+#kb-app .kb-auth-foot { font-size: 12.5px; color: rgba(255,255,255,.7); }
+#kb-app .kb-auth-main { display: flex; align-items: center; justify-content: center; padding: 36px 18px; }
+#kb-app .kb-auth-card { width: 100%; max-width: 440px; }
+#kb-app .kb-auth.is-inline .kb-auth-card { max-width: 560px; }
+#kb-app .kb-auth-card h1 { font-size: 24px; margin-bottom: 4px; }
+#kb-app .kb-auth-form { margin-top: 22px; }
+#kb-app .kb-auth-input { position: relative; }
+#kb-app .kb-auth-input > .kb-ico { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); color: var(--kb-soft); pointer-events: none; }
+#kb-app .kb-auth-input .kb-input { padding-right: 40px; height: 46px; }
+#kb-app .kb-auth-input .kb-auth-eye ~ .kb-input, #kb-app .kb-auth-input .kb-input:has(+ .kb-auth-eye) { padding-left: 46px; }
+#kb-app .kb-auth-eye { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: var(--kb-soft); }
+#kb-app .kb-auth-eye:hover, #kb-app .kb-auth-eye.is-on { background: #f1f5f9; color: var(--kb-ink); }
+#kb-app .kb-auth-submit { width: 100%; height: 48px; }
+#kb-app .kb-auth-alt { display: grid; gap: 8px; margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--kb-line); }
+#kb-app .kb-auth-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 16px; font-size: 13px; color: var(--kb-muted); }
+#kb-app .kb-auth-links a { display: inline-flex; align-items: center; gap: 5px; }
+#kb-app .kb-auth-links a:hover { color: var(--kb-brand-700); }
+#kb-app .kb-login-error:empty { display: none; }
+#kb-app .kb-login-error { margin-bottom: 16px; }
+#kb-app .kb-grid-2 { display: grid; gap: 0 14px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { #kb-app .kb-grid-2 { grid-template-columns: 1fr 1fr; } }
+#kb-app .kb-pw-meter { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
+#kb-app .kb-pw-meter i { height: 5px; border-radius: 5px; background: #e2e8f0; transition: background .2s; }
+#kb-app .kb-pw-meter[data-level="1"] i:nth-child(-n+1) { background: #dc2626; }
+#kb-app .kb-pw-meter[data-level="2"] i:nth-child(-n+2) { background: #f59e0b; }
+#kb-app .kb-pw-meter[data-level="3"] i:nth-child(-n+3) { background: #84cc16; }
+#kb-app .kb-pw-meter[data-level="4"] i { background: var(--kb-brand); }
+#kb-app .kb-pw-rules { display: grid; gap: 2px; margin-top: 8px; font-size: 12.5px; color: var(--kb-muted); }
+#kb-app .kb-pw-rules li { display: flex; align-items: center; gap: 6px; }
+#kb-app .kb-pw-rules li.is-ok { color: var(--kb-brand-700); }
+#kb-app .kb-pw-rules .kb-ico { width: 14px; height: 14px; }
+#kb-app .kb-captcha { display: flex; align-items: center; gap: 8px; }
+#kb-app .kb-captcha img { height: 46px; width: 150px; border-radius: 10px; border: 1px solid var(--kb-line); background: #f1f5f9; flex-shrink: 0; }
+#kb-app .kb-captcha .kb-input { height: 46px; flex: 1; min-width: 0; text-align: center; letter-spacing: 4px; font-size: 18px; }
+#kb-app .kb-hp { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; opacity: 0; }
+#kb-app .kb-done { text-align: center; padding: 10px 0; }
+#kb-app .kb-done .kb-empty-icon { background: var(--kb-brand-50); color: var(--kb-brand); }
+#kb-app .kb-track { display: inline-flex; align-items: center; gap: 10px; margin: 14px 0 6px; padding: 10px 18px; border-radius: 14px; background: #f8fafc; border: 1px dashed #cbd5e1; font-size: 20px; font-weight: 700; direction: ltr; letter-spacing: 1px; }
+#kb-app .kb-cmd { direction: ltr; text-align: left; background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 12px; font-family: Consolas, monospace; font-size: 12.5px; line-height: 1.8; white-space: pre-wrap; word-break: break-all; }
+#kb-app .kb-auth-mlogo { color: var(--kb-ink); margin-bottom: 28px; }
+@media (min-width: 1000px) { #kb-app .kb-auth-mlogo { display: none; } }

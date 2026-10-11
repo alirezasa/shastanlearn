@@ -26,8 +26,8 @@
     handler: site + '/_layouts/15/KB/KBApi.ashx',
     pageSize: 12,
     pages: MOCK
-      ? { home: 'index.html', browse: 'browse.html', content: 'content.html', panel: 'panel.html' }
-      : { home: site + '/KBPages/index.aspx', browse: site + '/KBPages/browse.aspx', content: site + '/KBPages/content.aspx', panel: site + '/KBPanel/panel.aspx' }
+      ? { home: 'index.html', browse: 'browse.html', content: 'content.html', panel: 'panel.html', register: 'register.html' }
+      : { home: site + '/KBPages/index.aspx', browse: site + '/KBPages/browse.aspx', content: site + '/KBPages/content.aspx', panel: site + '/KBPanel/panel.aspx', register: site + '/KBPages/register.aspx' }
   };
 
   KB.url = function (page, params) {
@@ -42,7 +42,8 @@
     }
     return base + (q.length ? (base.indexOf('?') < 0 ? '?' : '&') + q.join('&') : '');
   };
-  KB.contentUrl = function (id) { return KB.url('content', { id: id }); };
+  // پارامتر «cid» (نه «id»): شیرپوینت ID را در صفحات کتابخانه شناسه‌ی آیتم همان کتابخانه فرض می‌کند
+  KB.contentUrl = function (id) { return KB.url('content', { cid: id }); };
   KB.loginUrl = function () {
     if (MOCK) return '#login';
     return site + '/_layouts/15/Authenticate.aspx?Source=' + encodeURIComponent(location.pathname + location.search + location.hash);
@@ -453,16 +454,16 @@
   var spApi = {
     bootstrap: function () { return callHandler('bootstrap'); },
     list: function (p) { return callHandler('list', p); },
-    get: function (id, o) { return callHandler('get', { id: id, preview: o && o.preview ? 1 : '' }); },
+    get: function (id, o) { return callHandler('get', { cid: id, preview: o && o.preview ? 1 : '' }); },
     view: function (id) { return callHandler('view', {}, { id: id }).catch(function () { return null; }); },
     react: function (id, kind) { return callHandler('react', {}, { id: id, kind: kind }); },
-    comments: function (id) { return callHandler('comments', { id: id }); },
+    comments: function (id) { return callHandler('comments', { cid: id }); },
     addComment: function (id, body, parentId) { return callHandler('comment', {}, { id: id, body: body, parentId: parentId || 0 }); },
     deleteComment: function (cid) { return callHandler('comment-delete', {}, { id: cid }); },
 
     adminDashboard: function () { return callHandler('admin-dashboard'); },
     adminList: function (p) { return callHandler('admin-list', p); },
-    adminGet: function (id) { return callHandler('admin-get', { id: id }); },
+    adminGet: function (id) { return callHandler('admin-get', { cid: id }); },
     adminSave: function (data) { return callHandler('admin-save', {}, data); },
     adminStatus: function (ids, status, extra) {
       var b = { ids: ids };
@@ -483,6 +484,17 @@
     adminSettings: function () { return callHandler('admin-settings'); },
     adminSettingsSave: function (v) { return callHandler('admin-settings-save', {}, { settings: v }); },
     adminAudit: function (p) { return callHandler('admin-audit', p); },
+
+    captcha: function () { return callHandler('captcha'); },
+    register: function (data) { return callHandler('register', {}, data); },
+    registerStatus: function (userName, mobile) { return callHandler('register-status', {}, { userName: userName, mobile: mobile }); },
+    adminRegistrations: function (p) { return callHandler('admin-registrations', p); },
+    adminRegistrationAction: function (id, action, extra) {
+      var b = { id: id, action: action };
+      Object.keys(extra || {}).forEach(function (k) { b[k] = extra[k]; });
+      return callHandler('admin-registration-action', {}, b);
+    },
+    adminRegistrationPassword: function (id) { return callHandler('admin-registration-password', {}, { id: id }); },
 
     uploadAttachment: function (itemId, file, onProgress) {
       return adminMeta().then(function () {
