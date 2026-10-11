@@ -23,7 +23,7 @@
     'landmark', 'building', 'newspaper', 'help', 'star', 'globe', 'git-branch', 'activity', 'list-checks', 'calendar', 'mail'];
   var COLORS = ['#008000', '#0284c7', '#c22c2c', '#7c3aed', '#d97706', '#0d9488', '#db2777', '#4f46e5', '#ea580c', '#475569', '#0891b2', '#65a30d'];
   var ACTIONS = { Create: 'ایجاد', Update: 'ویرایش', Publish: 'انتشار', Unpublish: 'خارج کردن از انتشار', Archive: 'بایگانی', Delete: 'حذف', Duplicate: 'کپی',
-    Status: 'تغییر وضعیت', CommentApprove: 'تأیید نظر', CommentHide: 'مخفی کردن نظر', CommentDelete: 'حذف نظر', CategorySave: 'ذخیره‌ی دسته', CategoryDelete: 'حذف دسته', Settings: 'تغییر تنظیمات', Visibility: 'تغییر سطح دسترسی', Featured: 'تغییر ویژه' };
+    Status: 'تغییر وضعیت', CommentApprove: 'تأیید نظر', CommentHide: 'مخفی کردن نظر', CommentDelete: 'حذف نظر', CategorySave: 'ذخیره‌ی دسته', CategoryDelete: 'حذف دسته', RegistrationCreate: 'ایجاد حساب AD', RegistrationApprove: 'تأیید ثبت‌نام', RegistrationCreated: 'ثبت ایجاد دستی حساب', RegistrationReject: 'رد ثبت‌نام', RegistrationDelete: 'حذف درخواست ثبت‌نام', RegistrationPassword: 'مشاهده‌ی رمز ثبت‌نام', Settings: 'تغییر تنظیمات', Visibility: 'تغییر سطح دسترسی', Featured: 'تغییر ویژه' };
 
   function statusOf(it) {
     if (it.status === 'Published' && it.publishAt && new Date(it.publishAt) > new Date()) return 'Scheduled';
@@ -45,10 +45,10 @@
       ['', 'dashboard', 'داشبورد'], ['content', 'library', 'همه‌ی محتوا'], ['edit/new', 'plus', 'افزودن محتوا'], ['media', 'images', 'کتابخانه‌ی رسانه'],
       ['comments', 'messages', 'نظرات'], ['categories', 'folder-open', 'دسته‌بندی‌ها']
     ];
-    var adminLinks = [['settings', 'settings', 'تنظیمات سامانه'], ['audit', 'history', 'گزارش فعالیت']];
+    var adminLinks = [['registrations', 'user-plus', 'ثبت‌نام کاربران'], ['settings', 'settings', 'تنظیمات سامانه'], ['audit', 'history', 'گزارش فعالیت']];
     function link(l) {
       var active = route === l[0] || (l[0] === 'content' && route.indexOf('edit/') === 0 && route !== 'edit/new');
-      return html`<a class="kb-side-link ${active ? 'is-active' : ''}" href="#/${l[0]}">${icon(l[1])}${l[2]}${l[0] === 'comments' && pendingCount ? html`<span class="kb-badge">${U.faNum(pendingCount)}</span>` : ''}</a>`;
+      return html`<a class="kb-side-link ${active ? 'is-active' : ''}" href="#/${l[0]}">${icon(l[1])}${l[2]}${l[0] === 'comments' && pendingCount ? html`<span class="kb-badge">${U.faNum(pendingCount)}</span>` : ''}${l[0] === 'registrations' && meta && meta.pendingRegistrations ? html`<span class="kb-badge">${U.faNum(meta.pendingRegistrations)}</span>` : ''}</a>`;
     }
     U.mount(side, html`
       <div class="kb-panel-user">${ui.avatar(u.name)}<div class="kb-grow"><b>${u.name}</b><span>${KB.ROLES[u.role]}</span></div></div>
@@ -87,6 +87,7 @@
     if (p === 'categories') return categoriesPage();
     if (p === 'settings' && KB.can.admin()) return settingsPage();
     if (p === 'audit' && KB.can.admin()) return auditPage();
+    if (p === 'registrations' && KB.can.admin()) return registrationsPage(r.params);
     U.mount(main, ui.empty('help', 'صفحه یافت نشد', '', html`<a class="kb-btn kb-btn-brand" href="#/">داشبورد</a>`));
   }
 
@@ -227,7 +228,7 @@
               <td style="white-space:nowrap"><span class="kb-meta"><span>${icon('eye')}${U.compact(it.views)}</span><span>${icon('heart')}${U.faNum(it.likes)}</span><span>${icon('message')}${U.faNum(it.comments)}</span></span></td>
               <td style="white-space:nowrap"><div class="kb-row">
                 <a class="kb-btn kb-btn-ghost kb-btn-icon kb-btn-sm" href="#/edit/${it.id}" title="ویرایش">${icon('pencil')}</a>
-                <a class="kb-btn kb-btn-ghost kb-btn-icon kb-btn-sm" href="${KB.url('content', { id: it.id, preview: 1 })}" target="_blank" rel="noopener" title="مشاهده">${icon('eye')}</a>
+                <a class="kb-btn kb-btn-ghost kb-btn-icon kb-btn-sm" href="${KB.url('content', { cid: it.id, preview: 1 })}" target="_blank" rel="noopener" title="مشاهده">${icon('eye')}</a>
                 <div class="kb-nav-item"><button type="button" class="kb-btn kb-btn-ghost kb-btn-icon kb-btn-sm" data-kb-dd aria-controls="kb-row-${it.id}" aria-expanded="false" title="بیشتر">${icon('more-v')}</button>
                   <div class="kb-dropdown kb-dropdown-end" id="kb-row-${it.id}" hidden>
                     ${it.status !== 'Published' ? html`<button type="button" class="kb-dropdown-item" data-row="Published" data-id="${it.id}">${icon('check')}انتشار</button>` : html`<button type="button" class="kb-dropdown-item" data-row="Draft" data-id="${it.id}">${icon('eye-off')}خارج کردن از انتشار</button>`}
@@ -311,7 +312,7 @@
 
     U.mount(main, html`
       ${head(isNew ? 'افزودن محتوای جدید' : 'ویرایش محتوا', isNew ? 'plus' : 'pencil', isNew ? 'پس از تکمیل، ذخیره یا منتشر کنید' : html`شناسه‌ی ${U.faNum(it.id)} — آخرین تغییر ${U.relTime(it.modified)}${it.editor ? ' توسط ' + it.editor : ''}`,
-        html`<a class="kb-btn kb-btn-ghost" href="#/content">${icon('arrow-right')}بازگشت</a>${!isNew ? html`<a class="kb-btn kb-btn-ghost" href="${KB.url('content', { id: it.id, preview: 1 })}" target="_blank" rel="noopener">${icon('eye')}پیش‌نمایش</a>` : ''}`)}
+        html`<a class="kb-btn kb-btn-ghost" href="#/content">${icon('arrow-right')}بازگشت</a>${!isNew ? html`<a class="kb-btn kb-btn-ghost" href="${KB.url('content', { cid: it.id, preview: 1 })}" target="_blank" rel="noopener">${icon('eye')}پیش‌نمایش</a>` : ''}`)}
       ${restore ? html`<div class="kb-alert kb-alert-warn" style="margin-bottom:16px" id="kb-restore">${icon('history')}<span class="kb-grow">یک پیش‌نویس ذخیره‌نشده از ${U.relTime(restore.at)} در این مرورگر وجود دارد.</span><button type="button" class="kb-btn kb-btn-ghost kb-btn-sm" data-restore>بازیابی</button><button type="button" class="kb-btn kb-btn-link kb-btn-sm" data-discard>نادیده گرفتن</button></div>` : ''}
       <form class="kb-editor-grid" id="kb-edit-form" novalidate>
         <div style="min-width:0">
@@ -1166,7 +1167,14 @@
     ['CommentsEnabled', 'نظرات', 'select:true=فعال|false=غیرفعال در کل سامانه', ''],
     ['CommentModeration', 'انتشار نظرات', 'select:Post=بلافاصله منتشر شود (مدیر محتوا می‌تواند مخفی کند)|Pre=پس از تأیید مدیر محتوا منتشر شود', ''],
     ['NotifyEmails', 'ایمیل اطلاع‌رسانی نظرات جدید', 'text', 'چند نشانی را با ویرگول جدا کنید. Outgoing E-mail شیرپوینت باید تنظیم باشد.'],
-    ['DefaultVisibility', 'سطح دسترسی پیش‌فرض محتوای جدید', 'select:Public=عمومی|Private=ویژه‌ی کارکنان', '']
+    ['DefaultVisibility', 'سطح دسترسی پیش‌فرض محتوای جدید', 'select:Public=عمومی|Private=ویژه‌ی کارکنان', ''],
+    ['#', 'ثبت‌نام کاربران و Active Directory'],
+    ['RegistrationEnabled', 'ثبت‌نام کاربر جدید', 'select:true=فعال (دکمه‌ی ثبت‌نام در هدر)|false=غیرفعال', ''],
+    ['ADMode', 'ایجاد حساب پس از تأیید', 'select:Manual=دستی — مدیر حساب را در AD می‌سازد|Auto=خودکار — سرویس شیرپوینت حساب را در AD می‌سازد', 'برای حالت خودکار، حساب App Pool شیرپوینت باید روی OU مقصد مجوز ساخت کاربر و تنظیم رمز داشته باشد (راهنمای docs/03).'],
+    ['ADDomain', 'دامنه', 'ltr', 'مثال: ad.shastangroup.ir'],
+    ['ADContainer', 'OU مقصد کاربران جدید', 'ltr', 'مثال: OU=KB Users,OU=Shastan Portal,DC=ad,DC=shastangroup,DC=ir'],
+    ['ADUpnSuffix', 'پسوند UPN', 'ltr', 'خالی = همان دامنه'],
+    ['ADGroup', 'گروه AD برای کاربران جدید (اختیاری)', 'ltr', 'مثال: KB-Members']
   ];
   function settingsPage() {
     U.mount(main, html`${head('تنظیمات سامانه', 'settings', 'متن‌ها و رفتار عمومی پایگاه دانش')}${loadingBox()}`);
@@ -1175,11 +1183,12 @@
       U.mount(main, html`${head('تنظیمات سامانه', 'settings', 'متن‌ها و رفتار عمومی پایگاه دانش')}
         <form class="kb-panel-box" data-sf style="max-width:860px"><div class="kb-panel-box-body">
           ${SETTINGS.map(function (d) {
+            if (d[0] === '#') return html`<h3 class="kb-box-title" style="margin-top:22px">${d[1]}</h3>`;
             var v = s[d[0]] == null ? '' : s[d[0]];
             var input;
             if (d[2] === 'textarea') input = html`<textarea id="s-${d[0]}" class="kb-textarea" name="${d[0]}" rows="3">${v}</textarea>`;
             else if (d[2].indexOf('select:') === 0) input = html`<select id="s-${d[0]}" class="kb-select" name="${d[0]}">${d[2].slice(7).split('|').map(function (o) { var p = o.split('='); return html`<option value="${p[0]}" ${String(v) === p[0] ? raw('selected') : ''}>${p[1]}</option>`; })}</select>`;
-            else input = html`<input id="s-${d[0]}" class="kb-input" name="${d[0]}" value="${v}">`;
+            else input = html`<input id="s-${d[0]}" class="kb-input ${d[2] === 'ltr' ? 'kb-input-ltr' : ''}" name="${d[0]}" value="${v}">`;
             return html`<div class="kb-field"><label class="kb-label" for="s-${d[0]}">${d[1]}</label>${input}${d[3] ? html`<span class="kb-hint">${d[3]}</span>` : ''}</div>`;
           })}
         </div><div class="kb-publish-actions"><button type="submit" class="kb-btn kb-btn-brand" style="flex:0">${icon('save')}ذخیره‌ی تنظیمات</button></div></form>
@@ -1192,7 +1201,7 @@
       U.$('[data-sf]', main).addEventListener('submit', function (e) {
         e.preventDefault();
         var out = {};
-        SETTINGS.forEach(function (d) { out[d[0]] = this.elements[d[0]].value.trim(); }, this);
+        SETTINGS.forEach(function (d) { if (d[0] !== '#') out[d[0]] = this.elements[d[0]].value.trim(); }, this);
         var b = this.querySelector('[type=submit]'); ui.busy(b, true);
         api.adminSettingsSave(out).then(function () {
           ui.busy(b, false); ui.toast('تنظیمات ذخیره شد.');
@@ -1200,6 +1209,142 @@
         }).catch(function (e2) { ui.busy(b, false); err(e2); });
       });
     }).catch(function (e) { U.mount(main, ui.errorBox(e)); });
+  }
+
+  /* ==================================================================== ثبت‌نام کاربران (مدیر سامانه) */
+  var REG_STATUS = { Pending: 'در انتظار بررسی', Approved: 'تأییدشده — ایجاد دستی', Created: 'حساب ایجاد شد', Rejected: 'رد شده' };
+  var REG_CLASS = { Pending: 'Pending', Approved: 'Scheduled', Created: 'Published', Rejected: 'Hidden' };
+  function psQuote(s) { return "'" + String(s || '').replace(/'/g, "''") + "'"; }
+  /** دستور PowerShell (ماژول ActiveDirectory) برای ایجاد دستی حساب */
+  function adCommand(r, ad) {
+    var path = ad.container || 'OU=KB Users,DC=ad,DC=shastangroup,DC=ir';
+    var lines = [
+      'Import-Module ActiveDirectory',
+      'New-ADUser -Name ' + psQuote(r.fullName) + ' -SamAccountName ' + psQuote(r.userName) + ' -UserPrincipalName ' + psQuote(r.userName + '@' + (ad.upnSuffix || 'ad.shastangroup.ir')) + ' `',
+      '  -GivenName ' + psQuote(r.firstName) + ' -Surname ' + psQuote(r.lastName) + ' -DisplayName ' + psQuote(r.fullName) + ' `',
+      '  -MobilePhone ' + psQuote(r.mobile) + (r.company ? ' -Company ' + psQuote(r.company) : '') + ' -Description ' + psQuote('ثبت‌نام از پایگاه دانش — ' + r.trackingCode) + ' `',
+      '  -Path ' + psQuote(path) + ' -AccountPassword (Read-Host -AsSecureString "Password") -Enabled $true'
+    ];
+    if (ad.group) lines.push('Add-ADGroupMember -Identity ' + psQuote(ad.group) + ' -Members ' + psQuote(r.userName));
+    return lines.join('\n');
+  }
+  function registrationsPage(params) {
+    var st = { status: params.get('status') || 'Pending', q: '', page: 1 };
+    U.mount(main, html`${head('ثبت‌نام کاربران', 'user-plus', 'بررسی درخواست‌های عضویت و ایجاد حساب در Active Directory', html`<a class="kb-btn kb-btn-ghost" href="#/settings">${icon('settings')}تنظیمات ثبت‌نام و AD</a><a class="kb-btn kb-btn-ghost" href="${KB.url('register')}" target="_blank" rel="noopener">${icon('external')}صفحه‌ی ثبت‌نام</a>`)}
+      <div data-ad-mode></div>
+      <div class="kb-table-card"><div class="kb-status-tabs" data-rtabs></div>
+        <div class="kb-table-tools"><div class="kb-toolbar-search" style="min-width:240px">${icon('search')}<input class="kb-input" type="search" data-rq placeholder="جستجوی نام، نام کاربری، همراه، شرکت یا کد پیگیری" aria-label="جستجو"></div></div>
+        <div data-rlist></div><div class="kb-table-foot" data-rfoot></div></div>`);
+    var list = U.$('[data-rlist]', main), foot = U.$('[data-rfoot]', main), tabs = U.$('[data-rtabs]', main), info = { rows: [], ad: {}, auto: false };
+    function load() {
+      list.style.opacity = '.55';
+      api.adminRegistrations({ status: st.status, q: st.q, page: st.page, size: 20 }).then(function (r) {
+        list.style.opacity = '';
+        info.rows = r.items; info.ad = r.ad || {}; info.auto = !!r.adReady;
+        meta.pendingRegistrations = r.counts.Pending || 0; renderSide('registrations');
+        U.mount(U.$('[data-ad-mode]', main), r.adReady
+          ? html`<div class="kb-alert kb-alert-ok" style="margin-bottom:16px">${icon('shield-check')}<span>حالت <b>ایجاد خودکار</b>: با «تأیید و ایجاد حساب»، کاربر در <code style="direction:ltr">${r.ad.container}</code> ساخته می‌شود${r.ad.group ? html` و به گروه <b>${r.ad.group}</b> اضافه می‌شود` : ''}.</span></div>`
+          : html`<div class="kb-alert kb-alert-warn" style="margin-bottom:16px">${icon('info')}<span>حالت <b>ایجاد دستی</b>: درخواست را تأیید کنید، حساب را با دستور PowerShell آماده در Active Directory بسازید و سپس «ثبت شد در AD» را بزنید. ${r.adMode === 'Auto' ? 'برای ایجاد خودکار، دامنه و OU را در تنظیمات کامل کنید.' : ''}</span></div>`);
+        U.mount(tabs, [['Pending', 'در انتظار'], ['Approved', 'تأییدشده (ایجاد دستی)'], ['Created', 'ایجادشده'], ['Rejected', 'ردشده'], ['', 'همه']].map(function (t) {
+          return html`<button type="button" role="tab" aria-selected="${st.status === t[0]}" data-rs="${t[0]}">${t[1]}<small>${U.faNum(t[0] ? r.counts[t[0]] || 0 : r.counts.all || 0)}</small></button>`;
+        }));
+        U.mount(list, r.items.length ? html`<div class="kb-table-scroll"><table class="kb-table"><thead><tr><th>متقاضی</th><th>نام کاربری</th><th>همراه</th><th>شرکت</th><th>تاریخ</th><th>وضعیت</th><th></th></tr></thead><tbody>
+          ${r.items.map(function (x) {
+            var open = x.status === 'Pending' || x.status === 'Approved';
+            return html`<tr>
+              <td style="white-space:nowrap"><div class="kb-row">${ui.avatar(x.fullName)}<div><b>${x.fullName}</b><div class="kb-hint" style="margin:0;direction:ltr;text-align:right">${x.trackingCode}</div></div></div></td>
+              <td style="direction:ltr;text-align:right;white-space:nowrap">${x.userName}</td>
+              <td style="direction:ltr;text-align:right;white-space:nowrap">${x.mobile}</td>
+              <td>${x.company || '—'}</td>
+              <td style="white-space:nowrap" title="${U.fmtDateTime(x.date)}">${U.relTime(x.date)}</td>
+              <td><span class="kb-status kb-status-${REG_CLASS[x.status] || 'Draft'}">${REG_STATUS[x.status] || x.status}</span>
+                ${x.adError ? html`<div class="kb-error" style="max-width:260px;font-weight:400" title="${x.adError}">${icon('alert', 'kb-ico kb-ico-sm')} ${x.adError}</div>` : ''}
+                ${x.status === 'Rejected' && x.note ? html`<div class="kb-hint" style="margin:2px 0 0">${x.note}</div>` : ''}
+                ${x.reviewedBy ? html`<div class="kb-hint" style="margin:2px 0 0">${x.reviewedBy} — ${U.fmtDateShort(x.reviewedOn)}</div>` : ''}</td>
+              <td style="white-space:nowrap"><div class="kb-row">
+                ${open && info.auto ? html`<button type="button" class="kb-btn kb-btn-brand kb-btn-sm" data-ra="create" data-id="${x.id}">${icon('user-check')}تأیید و ایجاد حساب</button>` : ''}
+                ${x.status === 'Pending' && !info.auto ? html`<button type="button" class="kb-btn kb-btn-brand kb-btn-sm" data-ra="approve" data-id="${x.id}">${icon('check')}تأیید</button>` : ''}
+                ${open ? html`<button type="button" class="kb-btn kb-btn-ghost kb-btn-sm" data-manual="${x.id}">${icon('terminal')}ایجاد دستی</button>` : ''}
+                ${open ? html`<button type="button" class="kb-btn kb-btn-danger kb-btn-sm" data-ra="reject" data-id="${x.id}">${icon('user-x')}رد</button>` : ''}
+                <button type="button" class="kb-btn kb-btn-ghost kb-btn-icon kb-btn-sm" data-ra="delete" data-id="${x.id}" aria-label="حذف" title="حذف">${icon('trash')}</button>
+              </div></td></tr>`;
+          })}</tbody></table></div>` : ui.empty('user-plus', st.status === 'Pending' ? 'درخواست جدیدی در انتظار بررسی نیست' : 'درخواستی یافت نشد'));
+        U.mount(foot, html`<span>${U.faNum(r.total)} درخواست</span>${ui.pager(r.page, r.pages)}`);
+      }).catch(function (e) { list.style.opacity = ''; U.mount(list, ui.errorBox(e)); });
+    }
+    function rowOf(id) { return info.rows.filter(function (x) { return x.id === Number(id); })[0]; }
+    function act(id, action, extra, msg) {
+      return api.adminRegistrationAction(Number(id), action, extra).then(function (r) {
+        ui.toast(msg);
+        if (r && r.warning) ui.toast(r.warning, 'error');
+        load();
+      });
+    }
+    U.on(tabs, 'click', '[data-rs]', function (e, b) { st.status = b.getAttribute('data-rs'); st.page = 1; load(); });
+    U.$('[data-rq]', main).addEventListener('input', U.debounce(function () { st.q = this.value.trim(); st.page = 1; load(); }, 350));
+    ui.bindPager(foot, function (p) { st.page = p; load(); });
+    U.on(list, 'click', '[data-ra]', function (e, b) {
+      var id = b.getAttribute('data-id'), a = b.getAttribute('data-ra'), x = rowOf(id);
+      if (a === 'create') {
+        ui.confirm('حساب «' + x.userName + '» برای ' + x.fullName + ' در Active Directory ایجاد شود؟', { ok: 'ایجاد حساب', detail: 'کاربر با همان رمز عبوری که هنگام ثبت‌نام وارد کرده می‌تواند وارد شود. رمز عبور پس از ایجاد حساب از پایگاه دانش حذف می‌شود.' }).then(function (ok) {
+          if (!ok) return;
+          ui.busy(b, true);
+          act(id, 'create', null, 'حساب ' + x.userName + ' در Active Directory ایجاد شد.').catch(function (er) { ui.busy(b, false); ui.toast(er.message, 'error'); load(); });
+        });
+      } else if (a === 'approve') {
+        act(id, 'approve', null, 'درخواست تأیید شد؛ حساب را در Active Directory ایجاد کنید.').catch(err);
+      } else if (a === 'reject') {
+        var m = ui.modal({
+          title: 'رد درخواست ' + x.fullName, icon: 'user-x',
+          body: html`<label class="kb-label" for="kb-rej">دلیل رد (در صفحه‌ی پیگیری به متقاضی نمایش داده می‌شود)</label><textarea id="kb-rej" class="kb-textarea" rows="3" autofocus></textarea>`,
+          foot: html`<button type="button" class="kb-btn kb-btn-accent" data-ok>${icon('user-x')}رد درخواست</button><button type="button" class="kb-btn kb-btn-ghost" data-kb-close>انصراف</button>`
+        });
+        m.el.querySelector('[data-ok]').addEventListener('click', function () {
+          var note = U.$('#kb-rej', m.el).value.trim();
+          if (note.length < 3) { U.$('#kb-rej', m.el).setAttribute('aria-invalid', 'true'); return; }
+          var btn = this; ui.busy(btn, true);
+          act(id, 'reject', { note: note }, 'درخواست رد شد.').then(function () { m.close(); }).catch(function (er) { ui.busy(btn, false); err(er); });
+        });
+      } else if (a === 'delete') {
+        ui.confirm('درخواست ' + x.fullName + ' حذف شود؟', { danger: true, ok: 'حذف', detail: x.status === 'Created' ? 'فقط سابقه‌ی درخواست حذف می‌شود؛ حساب Active Directory باقی می‌ماند.' : '' }).then(function (ok) {
+          if (ok) act(id, 'delete', null, 'حذف شد.').catch(err);
+        });
+      }
+    });
+    U.on(list, 'click', '[data-manual]', function (e, b) {
+      var x = rowOf(b.getAttribute('data-manual'));
+      var m = ui.modal({
+        title: 'ایجاد دستی حساب — ' + x.fullName, icon: 'terminal', size: 'lg',
+        body: html`<div style="display:grid;gap:4px;margin-bottom:14px">
+            <div class="kb-kv"><span>نام / نام خانوادگی</span><b>${x.firstName} / ${x.lastName}</b></div>
+            <div class="kb-kv"><span>نام کاربری (sAMAccountName)</span><b style="direction:ltr">${x.userName}</b></div>
+            <div class="kb-kv"><span>UPN</span><b style="direction:ltr">${x.userName}@${info.ad.upnSuffix || ''}</b></div>
+            <div class="kb-kv"><span>شماره‌ی همراه (mobile)</span><b style="direction:ltr">${x.mobile}</b></div>
+            <div class="kb-kv"><span>شرکت (company)</span><b>${x.company || '—'}</b></div>
+            <div class="kb-kv"><span>رمز عبور انتخابی کاربر</span><b data-pw>${x.hasPassword ? html`<button type="button" class="kb-btn kb-btn-ghost kb-btn-sm" data-show-pw>${icon('eye')}نمایش (ثبت در گزارش فعالیت)</button>` : 'در دسترس نیست'}</b></div></div>
+          <label class="kb-label">دستور PowerShell روی سرور دارای ماژول ActiveDirectory</label>
+          <div class="kb-cmd" data-cmd>${adCommand(x, info.ad)}</div>
+          <div class="kb-row" style="margin-top:8px"><button type="button" class="kb-btn kb-btn-ghost kb-btn-sm" data-copy-cmd>${icon('copy')}کپی دستور</button><span class="kb-hint" style="margin:0">رمز عبور هنگام اجرا پرسیده می‌شود.</span></div>
+          <div class="kb-field" style="margin-top:16px"><label class="kb-label" for="kb-acc">نام حساب ایجادشده</label><input id="kb-acc" class="kb-input kb-input-ltr" value="${x.userName}"></div>`,
+        foot: html`<button type="button" class="kb-btn kb-btn-brand" data-done>${icon('user-check')}ثبت شد در AD</button>${x.status === 'Pending' ? html`<button type="button" class="kb-btn kb-btn-ghost" data-approve>${icon('check')}فقط تأیید (بعداً ایجاد می‌کنم)</button>` : ''}<button type="button" class="kb-btn kb-btn-ghost" data-kb-close>بستن</button>`
+      });
+      U.on(m.el, 'click', '[data-show-pw]', function (ev, btn) {
+        ui.busy(btn, true);
+        api.adminRegistrationPassword(x.id).then(function (r) { U.mount(U.$('[data-pw]', m.el), html`<code style="direction:ltr;font-size:15px;user-select:all">${r.password}</code>`); }).catch(function (er) { ui.busy(btn, false); err(er); });
+      });
+      U.on(m.el, 'click', '[data-copy-cmd]', function () {
+        var t = document.createElement('textarea'); t.value = adCommand(x, info.ad); document.body.appendChild(t); t.select();
+        try { document.execCommand('copy'); ui.toast('دستور کپی شد.'); } catch (ex) { /* */ }
+        t.remove();
+      });
+      var approve = m.el.querySelector('[data-approve]');
+      if (approve) approve.addEventListener('click', function () { act(x.id, 'approve', null, 'درخواست تأیید شد.').then(function () { m.close(); }).catch(err); });
+      m.el.querySelector('[data-done]').addEventListener('click', function () {
+        var btn = this; ui.busy(btn, true);
+        act(x.id, 'created', { account: U.$('#kb-acc', m.el).value.trim() }, 'وضعیت «حساب ایجاد شد» ثبت و رمز عبور حذف شد.').then(function () { m.close(); }).catch(function (er) { ui.busy(btn, false); err(er); });
+      });
+    });
+    load();
   }
 
   /* ==================================================================== گزارش فعالیت */

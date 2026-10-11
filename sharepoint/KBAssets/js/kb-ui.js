@@ -15,6 +15,7 @@
     admin: function () { return KB.state.user.role === 'admin'; },
     login: function () { return !KB.state.user.anonymous; }
   };
+  KB.canRegister = function () { return KB.state.user.anonymous && (KB.state.settings || {}).RegistrationEnabled === 'true'; };
   KB.setting = function (key, fallback) {
     var v = KB.state.settings && KB.state.settings[key];
     return v == null || v === '' ? fallback : v;
@@ -357,7 +358,7 @@
         <div class="kb-header-actions">
           <button type="button" class="kb-btn kb-btn-icon kb-search-toggle" data-kb-search-toggle aria-label="جستجو">${icon('search')}</button>
           ${user.anonymous
-            ? html`<a class="kb-btn kb-btn-white kb-btn-sm" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}<span class="kb-hide-sm">ورود کارکنان</span></a>`
+            ? html`${KB.canRegister() ? html`<a class="kb-btn kb-btn-light kb-btn-sm" href="${KB.url('register')}">${icon('user-plus')}<span class="kb-hide-sm">ثبت‌نام</span></a>` : ''}<a class="kb-btn kb-btn-white kb-btn-sm" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}<span class="kb-hide-sm">ورود</span></a>`
             : html`<div class="kb-nav-item">
               <button type="button" class="kb-user-btn" data-kb-dd aria-controls="kb-dd-user" aria-expanded="false">${ui.avatar(user.name)}<span class="kb-user-name">${user.name}</span>${icon('chevron-down', 'kb-ico-sm')}</button>
               <div class="kb-dropdown kb-dropdown-end" id="kb-dd-user" hidden>
@@ -385,7 +386,7 @@
         ${cats.length ? html`<div class="kb-drawer-title">دسته‌بندی‌ها</div>${cats.map(function (c) { return html`<a class="kb-drawer-link" href="${KB.url('browse', { cat: c.title })}" style="font-weight:400">${icon(c.icon)}${c.title}</a>`; })}` : ''}
         <div class="kb-drawer-title">حساب کاربری</div>
         ${KB.state.user.anonymous
-          ? html`<a class="kb-drawer-link" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود کارکنان</a>`
+          ? html`<a class="kb-drawer-link" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود</a>${KB.canRegister() ? html`<a class="kb-drawer-link" href="${KB.url('register')}">${icon('user-plus')}ثبت‌نام کاربر جدید</a>` : ''}`
           : html`<a class="kb-drawer-link" href="${KB.logoutUrl()}" data-kb-logout>${icon('log-out')}خروج (${KB.state.user.name})</a>`}
       </div>
     </aside>`;

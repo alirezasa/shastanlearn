@@ -28,5 +28,14 @@
   "SiteTitle": "پایگاه دانش شستان",
   "SiteSubtitle": "شرکت سرمایه‌گذاری تجاری شستان",
   "CommentModeration": "Post",
-  "NotifyEmails": "ICT@SHASTAN.IR"
+  "NotifyEmails": "ICT@SHASTAN.IR",
+
+  "Registration": {
+    "Enabled": true,
+    "ADMode": "Manual",
+    "ADDomain": "ad.shastangroup.ir",
+    "ADContainer": "OU=KB Users,DC=ad,DC=shastangroup,DC=ir",
+    "ADUpnSuffix": "ad.shastangroup.ir",
+    "ADGroup": ""
+  }
 }

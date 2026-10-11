@@ -2,6 +2,8 @@
 <%@ Assembly Name="Microsoft.SharePoint, Version=16.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c" %>
 <%@ Assembly Name="System.Web.Extensions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" %>
 <%@ Assembly Name="System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" %>
+<%@ Assembly Name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" %>
+<%@ Assembly Name="System.DirectoryServices, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" %>
 // =====================================================================================================
 //  پایگاه دانش شستان — سرویس سمت سرور (SharePoint Server 2019)
 //  محل استقرار: 16\TEMPLATE\LAYOUTS\KB\KBApi.ashx   →   http://<site>/_layouts/15/KB/KBApi.ashx
@@ -18,13 +20,20 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.DirectoryServices;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.Script.Serialization;
+using System.Web.Security;
 using Microsoft.SharePoint;
 using Microsoft.SharePoint.Administration;
 using Microsoft.SharePoint.Utilities;
@@ -42,8 +51,9 @@ namespace Shastan.KB
         private const int IndexSeconds = 60;
         private const int ConfigSeconds = 120;
 
-        private static readonly string[] PublicSettingKeys = { "SiteTitle", "SiteSubtitle", "HeroTitle", "HeroText", "FooterText", "Copyright", "CommentsEnabled", "CommentModeration" };
-        private static readonly string[] EditableSettingKeys = { "SiteTitle", "SiteSubtitle", "HeroTitle", "HeroText", "FooterText", "Copyright", "CommentsEnabled", "CommentModeration", "NotifyEmails", "DefaultVisibility" };
+        private static readonly string[] PublicSettingKeys = { "SiteTitle", "SiteSubtitle", "HeroTitle", "HeroText", "FooterText", "Copyright", "CommentsEnabled", "CommentModeration", "RegistrationEnabled" };
+        private static readonly string[] EditableSettingKeys = { "SiteTitle", "SiteSubtitle", "HeroTitle", "HeroText", "FooterText", "Copyright", "CommentsEnabled", "CommentModeration", "NotifyEmails", "DefaultVisibility",
+            "RegistrationEnabled", "ADMode", "ADDomain", "ADContainer", "ADGroup", "ADUpnSuffix" };
         private static readonly string[] LogicalFields = { "Title", "Summary", "Body", "ThumbnailUrl", "ContentType", "Category", "Views", "ReadingMinutes", "IsFeatured", "AuthorName", "AuthorBio", "AuthorImageUrl", "PublishAt", "Visibility", "Status", "Tags", "MediaUrl", "LikesCount", "CommentsCount", "AllowComments" };
         private static readonly string[] DefaultTypes = { "مقاله", "ویدیو", "پادکست", "راهنما و آموزش", "گزارش", "گزارش تصویری", "سند و فایل", "خبر", "اینفوگرافیک", "پرسش و پاسخ" };
         private static readonly object Sync = new object();
@@ -164,6 +174,9 @@ namespace Shastan.KB
                 case "get": return GetAction();
                 case "file": FileAction(); return null;
                 case "comments": return CommentsAction();
+                case "captcha": return CaptchaAction();
+                case "register": RequirePost(isPost); return RegisterAction();
+                case "register-status": RequirePost(isPost); return RegisterStatusAction();
                 case "view": RequirePost(isPost); return ViewAction();
                 case "react": RequirePost(isPost); return ReactAction();
                 case "comment": RequirePost(isPost); return CommentAction();
@@ -177,7 +190,7 @@ namespace Shastan.KB
                     case "admin-meta": return AdminMeta();
                     case "admin-dashboard": return AdminDashboard();
                     case "admin-list": return AdminList();
-                    case "admin-get": return AdminGet(QInt("id"));
+                    case "admin-get": return AdminGet(QId());
                     case "admin-authors": return AdminAuthors();
                     case "admin-comments": return AdminComments();
                     case "admin-categories": return AdminCategories();
@@ -193,6 +206,9 @@ namespace Shastan.KB
                     case "admin-settings": RequireAdmin(); return AdminSettings();
                     case "admin-settings-save": RequirePost(isPost); RequireAdmin(); return AdminSettingsSave();
                     case "admin-audit": RequireAdmin(); return AdminAudit();
+                    case "admin-registrations": RequireAdmin(); return AdminRegistrations();
+                    case "admin-registration-action": RequirePost(isPost); RequireAdmin(); return AdminRegistrationAction();
+                    case "admin-registration-password": RequirePost(isPost); RequireAdmin(); return AdminRegistrationPassword();
                 }
             }
             throw new ApiException(400, "عملیات نامعتبر است.");
@@ -575,7 +591,7 @@ namespace Shastan.KB
                 int slash = rest.IndexOf('/');
                 int id;
                 if (slash > 0 && int.TryParse(rest.Substring(0, slash), out id))
-                    return HandlerUrl + "?action=file&id=" + id + "&name=" + HttpUtility.UrlEncode(HttpUtility.UrlDecode(rest.Substring(slash + 1)));
+                    return HandlerUrl + "?action=file&cid=" + id + "&name=" + HttpUtility.UrlEncode(HttpUtility.UrlDecode(rest.Substring(slash + 1)));
             }
             return u;
         }
@@ -585,7 +601,7 @@ namespace Shastan.KB
             if (string.IsNullOrEmpty(html)) return "";
             string pattern = "(?:https?://[^/\"'\\s]+)?" + Regex.Escape(cfg.ContentListUrl) + "/Attachments/(\\d+)/([^\"'\\s<>?#]+)";
             string handler = HandlerUrl;
-            return Regex.Replace(html, pattern, m => handler + "?action=file&amp;id=" + m.Groups[1].Value + "&amp;name=" +
+            return Regex.Replace(html, pattern, m => handler + "?action=file&amp;cid=" + m.Groups[1].Value + "&amp;name=" +
                 HttpUtility.UrlEncode(HttpUtility.UrlDecode(HttpUtility.HtmlDecode(m.Groups[2].Value))), RegexOptions.IgnoreCase);
         }
 
@@ -680,6 +696,14 @@ namespace Shastan.KB
         }
 
         private string Q(string key) { return (req.QueryString[key] ?? "").Trim(); }
+
+        /// <summary>شناسه‌ی محتوا. «cid» به‌جای «id» چون شیرپوینت پارامتر ID را رزرو کرده و در صفحات کتابخانه
+        /// آن را شناسه‌ی آیتم همان کتابخانه فرض می‌کند (خطای «No item exists at ...»).</summary>
+        private int QId()
+        {
+            int i = QInt("cid");
+            return i > 0 ? i : QInt("id");
+        }
 
         private int QInt(string key)
         {
@@ -928,7 +952,7 @@ namespace Shastan.KB
                     files.Add(new Dictionary<string, object>
                     {
                         { "name", name }, { "size", size },
-                        { "url", direct ? rel : handler + "?action=file&id=" + id + "&name=" + HttpUtility.UrlEncode(name) },
+                        { "url", direct ? rel : handler + "?action=file&cid=" + id + "&name=" + HttpUtility.UrlEncode(name) },
                         { "rawUrl", rel }
                     });
                 }
@@ -938,7 +962,7 @@ namespace Shastan.KB
 
         private object GetAction()
         {
-            int id = QInt("id");
+            int id = QId();
             bool preview = Q("preview") == "1";
             Entry idx = FindVisible(id, preview);
             Entry e = LoadEntry(idx.Id, true);
@@ -962,7 +986,7 @@ namespace Shastan.KB
         // ------------------------------------------------------------------ فایل پیوست (با بررسی دسترسی)
         private void FileAction()
         {
-            int id = QInt("id");
+            int id = QId();
             string name = Q("name");
             if (id <= 0 || name.Length == 0 || name.IndexOfAny(new[] { '/', '\\' }) >= 0) throw new ApiException(400, "درخواست نامعتبر است.");
             Entry e = PublishedIndex().FirstOrDefault(x => x.Id == id);
@@ -1219,7 +1243,7 @@ namespace Shastan.KB
 
         private object CommentsAction()
         {
-            Entry e = FindVisible(QInt("id"), true);
+            Entry e = FindVisible(QId(), true);
             List<CommentRow> rows = LoadComments(e.Id).Where(c => c.Status == "Approved" || IsManager || (userKey != null && c.Login == userKey && c.Status == "Pending")).ToList();
             bool enabled = CommentsEnabled(e);
             return new Dictionary<string, object>
@@ -1353,7 +1377,8 @@ namespace Shastan.KB
             {
                 { "contentList", cfg.ContentList }, { "mediaUrl", cfg.MediaUrl }, { "mediaTitle", cfg.MediaTitle }, { "types", types },
                 { "categoryChoices", cfg.CategoryChoices }, { "defaultVisibility", Setting(cfg, "DefaultVisibility", "Public") },
-                { "maxUploadMb", cfg.MaxUploadMb }, { "pendingComments", int.Parse(pending, CultureInfo.InvariantCulture) }, { "version", Version }, { "role", role },
+                { "maxUploadMb", cfg.MaxUploadMb }, { "pendingComments", int.Parse(pending, CultureInfo.InvariantCulture) },
+                { "pendingRegistrations", role == "admin" ? PendingRegistrations() : 0 }, { "version", Version }, { "role", role },
                 { "fieldTypes", cfg.Types }
             };
         }
@@ -1855,6 +1880,594 @@ namespace Shastan.KB
             if (words.Length > 0) rows = rows.Where(r => words.All(w => Norm(r["actor"] + " " + r["action"] + " " + r["title"] + " " + r["details"]).Contains(w))).ToList();
             Page<Dictionary<string, object>> page = Paginate(rows, QInt("page"), QInt("size") > 0 ? QInt("size") : 30);
             return new Dictionary<string, object> { { "items", page.Items }, { "total", page.Total }, { "page", page.Number }, { "pages", page.Pages } };
+        }
+
+        // ==================================================================== ثبت‌نام کاربران
+        //  کاربر ناشناس فرم ثبت‌نام را پر می‌کند → لیست KBRegistrations (فقط KB-Admins) با وضعیت Pending.
+        //  رمز عبور با MachineKey (یکسان در همه‌ی سرورهای فارم) رمزنگاری و پس از ایجاد حساب یا رد درخواست پاک می‌شود.
+        //  مدیر سامانه: «تأیید و ایجاد در AD» (حالت Auto؛ حساب App Pool باید روی OU مجوز ساخت کاربر داشته باشد)
+        //  یا «تأیید» برای ایجاد دستی و سپس «ثبت شد در AD».
+        private const string RegistrationsListTitle = "KBRegistrations";
+        private const string CaptchaPurpose = "Shastan.KB.Captcha.v1";
+        private const string PasswordPurpose = "Shastan.KB.Register.v1";
+        private static readonly string[] ReservedUserNames = { "admin", "administrator", "guest", "krbtgt", "root", "system", "test", "user", "support", "sharepoint", "service", "backup", "operator", "helpdesk", "webmaster" };
+
+        private class RegRow
+        {
+            public int Id;
+            public string FirstName = "", LastName = "", UserName = "", Mobile = "", Company = "", PasswordEnc = "", Status = "Pending";
+            public string TrackingCode = "", ReviewNote = "", ReviewedBy = "", AdAccount = "", AdError = "";
+            public DateTime Created;
+            public DateTime? ReviewedOn;
+            public string FullName { get { return (FirstName + " " + LastName).Trim(); } }
+        }
+
+        private bool RegistrationEnabled { get { return Setting(cfg, "RegistrationEnabled", "false") == "true"; } }
+
+        // ------------------------------------------------------------------ کپچا
+        private object CaptchaAction()
+        {
+            string code = RandomDigits(5);
+            string payload = code + "|" + DateTime.UtcNow.AddMinutes(15).Ticks.ToString(CultureInfo.InvariantCulture) + "|" + Guid.NewGuid().ToString("N");
+            string token = HttpServerUtility.UrlTokenEncode(MachineKey.Protect(Encoding.UTF8.GetBytes(payload), CaptchaPurpose));
+            return new Dictionary<string, object> { { "token", token }, { "image", "data:image/png;base64," + RenderCaptcha(code) } };
+        }
+
+        private static string RandomDigits(int length)
+        {
+            byte[] bytes = new byte[length];
+            using (RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider()) rng.GetBytes(bytes);
+            StringBuilder sb = new StringBuilder(length);
+            foreach (byte b in bytes) sb.Append((char)('0' + (b % 10)));
+            return sb.ToString();
+        }
+
+        private static string RenderCaptcha(string code)
+        {
+            Random random = new Random();
+            using (Bitmap bmp = new Bitmap(150, 46))
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.Clear(Color.FromArgb(241, 245, 249));
+                for (int i = 0; i < 9; i++)
+                    using (Pen pen = new Pen(Color.FromArgb(random.Next(140, 210), random.Next(140, 210), random.Next(140, 210)), 1))
+                        g.DrawLine(pen, random.Next(150), random.Next(46), random.Next(150), random.Next(46));
+                using (Font font = new Font("Tahoma", 21, FontStyle.Bold, GraphicsUnit.Pixel))
+                using (SolidBrush brush = new SolidBrush(Color.FromArgb(0, 90, 0)))
+                {
+                    for (int i = 0; i < code.Length; i++)
+                    {
+                        GraphicsState state = g.Save();
+                        g.TranslateTransform(16 + i * 27, 23);
+                        g.RotateTransform(random.Next(-20, 20));
+                        g.DrawString(code[i].ToString(), font, brush, -8, -13);
+                        g.Restore(state);
+                    }
+                }
+                for (int i = 0; i < 140; i++) bmp.SetPixel(random.Next(150), random.Next(46), Color.FromArgb(random.Next(120, 200), random.Next(120, 200), random.Next(120, 200)));
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    bmp.Save(ms, ImageFormat.Png);
+                    return Convert.ToBase64String(ms.ToArray());
+                }
+            }
+        }
+
+        /// <summary>هر توکن فقط یک‌بار و تا ۱۵ دقیقه معتبر است</summary>
+        private static bool ValidateCaptcha(string token, string answer)
+        {
+            if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(answer)) return false;
+            try
+            {
+                byte[] raw = MachineKey.Unprotect(HttpServerUtility.UrlTokenDecode(token), CaptchaPurpose);
+                if (raw == null) return false;
+                string[] parts = Encoding.UTF8.GetString(raw).Split('|');
+                if (parts.Length != 3) return false;
+                if (DateTime.UtcNow.Ticks > long.Parse(parts[1], CultureInfo.InvariantCulture)) return false;
+                string usedKey = "kb.captcha.used." + parts[2];
+                if (HttpRuntime.Cache[usedKey] != null) return false;
+                HttpRuntime.Cache.Insert(usedKey, true, null, DateTime.UtcNow.AddMinutes(20), System.Web.Caching.Cache.NoSlidingExpiration);
+                return string.Equals(parts[0], Digits(answer).Trim(), StringComparison.Ordinal);
+            }
+            catch { return false; }
+        }
+
+        private static string Digits(string s)
+        {
+            StringBuilder sb = new StringBuilder((s ?? "").Length);
+            foreach (char ch in s ?? "")
+            {
+                if (ch >= '۰' && ch <= '۹') sb.Append((char)('0' + (ch - '۰')));
+                else if (ch >= '٠' && ch <= '٩') sb.Append((char)('0' + (ch - '٠')));
+                else sb.Append(ch);
+            }
+            return sb.ToString();
+        }
+
+        private bool RateAllowed(string bucket, int max, TimeSpan window)
+        {
+            string key = "kb.rate." + bucket + "." + ClientIp();
+            lock (Sync)
+            {
+                int count = HttpRuntime.Cache[key] is int ? (int)HttpRuntime.Cache[key] : 0;
+                if (count >= max) return false;
+                HttpRuntime.Cache.Insert(key, count + 1, null, DateTime.UtcNow.Add(window), System.Web.Caching.Cache.NoSlidingExpiration);
+                return true;
+            }
+        }
+
+        // ------------------------------------------------------------------ اعتبارسنجی
+        private static string NormalizeMobile(string s)
+        {
+            string m = Regex.Replace(Digits(s ?? ""), "[\\s\\-()]", "");
+            if (m.StartsWith("+98")) m = "0" + m.Substring(3);
+            else if (m.StartsWith("0098")) m = "0" + m.Substring(4);
+            else if (m.StartsWith("98") && m.Length == 12) m = "0" + m.Substring(2);
+            else if (m.Length == 10 && m.StartsWith("9")) m = "0" + m;
+            return m;
+        }
+
+        /// <summary>هم‌خوان با Password Complexity پیش‌فرض Active Directory</summary>
+        private static string PasswordProblem(string pw, string userName, string first, string last)
+        {
+            if (pw.Length < 8) return "رمز عبور باید دست‌کم ۸ نویسه باشد.";
+            if (pw.Length > 64) return "رمز عبور حداکثر ۶۴ نویسه است.";
+            if (pw.Any(c => c > 126 || c < 32)) return "در رمز عبور فقط از حروف، اعداد و نمادهای صفحه‌کلید انگلیسی استفاده کنید.";
+            int classes = (Regex.IsMatch(pw, "[A-Z]") ? 1 : 0) + (Regex.IsMatch(pw, "[a-z]") ? 1 : 0) + (Regex.IsMatch(pw, "[0-9]") ? 1 : 0) + (Regex.IsMatch(pw, "[^A-Za-z0-9]") ? 1 : 0);
+            if (classes < 3) return "رمز عبور باید دست‌کم سه مورد از این‌ها را داشته باشد: حرف بزرگ انگلیسی، حرف کوچک انگلیسی، عدد، نماد.";
+            if (userName.Length >= 3 && pw.IndexOf(userName, StringComparison.OrdinalIgnoreCase) >= 0) return "رمز عبور نباید شامل نام کاربری باشد.";
+            foreach (string part in (first + " " + last).Split(new[] { ' ', '-', '.' }, StringSplitOptions.RemoveEmptyEntries))
+                if (part.Length >= 3 && pw.IndexOf(part, StringComparison.OrdinalIgnoreCase) >= 0) return "رمز عبور نباید شامل نام شما باشد.";
+            return null;
+        }
+
+        private static ApiException FieldError(string field, string message) { return new ApiException(400, message, "field:" + field); }
+
+        private string BRaw(string key, int max)
+        {
+            object v;
+            if (!body.TryGetValue(key, out v) || v == null) return "";
+            string s = Convert.ToString(v, CultureInfo.InvariantCulture);
+            return s.Length > max ? s.Substring(0, max) : s;
+        }
+
+        // ------------------------------------------------------------------ لیست ثبت‌نام‌ها
+        private RegRow RegFromItem(SPListItem it)
+        {
+            RegRow r = new RegRow();
+            r.Id = it.ID;
+            r.FirstName = Convert.ToString(it["FirstName"]) ?? "";
+            r.LastName = Convert.ToString(it["LastName"]) ?? "";
+            r.UserName = Convert.ToString(it["UserName"]) ?? "";
+            r.Mobile = Convert.ToString(it["Mobile"]) ?? "";
+            r.Company = Convert.ToString(it["Company"]) ?? "";
+            r.PasswordEnc = Convert.ToString(it["PasswordEnc"]) ?? "";
+            r.Status = FirstNonEmpty(Convert.ToString(it["Status"]), "Pending");
+            r.TrackingCode = Convert.ToString(it["TrackingCode"]) ?? "";
+            r.ReviewNote = Convert.ToString(it["ReviewNote"]) ?? "";
+            r.ReviewedBy = Convert.ToString(it["ReviewedBy"]) ?? "";
+            r.AdAccount = Convert.ToString(it["AdAccount"]) ?? "";
+            r.AdError = Convert.ToString(it["AdError"]) ?? "";
+            try { r.Created = ToUtc((DateTime)it[SPBuiltInFieldId.Created]); } catch { }
+            try { if (it["ReviewedOn"] is DateTime) r.ReviewedOn = ToUtc((DateTime)it["ReviewedOn"]); } catch { }
+            return r;
+        }
+
+        private SPList RegistrationsList(SPWeb web)
+        {
+            SPList list = web.Lists.TryGetList(RegistrationsListTitle);
+            if (list == null) throw new ApiException(500, "لیست KBRegistrations یافت نشد؛ اسکریپت Install-KBPortal.ps1 را دوباره اجرا کنید.");
+            return list;
+        }
+
+        private List<RegRow> FindRegistrations(SPWeb web, string field, string value)
+        {
+            List<RegRow> rows = new List<RegRow>();
+            SPQuery q = new SPQuery();
+            q.Query = "<Where>" + Caml(field, "Text", value) + "</Where>";
+            q.RowLimit = 50;
+            foreach (SPListItem it in RegistrationsList(web).GetItems(q)) rows.Add(RegFromItem(it));
+            return rows;
+        }
+
+        private static string StatusLabel(string s)
+        {
+            switch (s)
+            {
+                case "Approved": return "تأیید شده — حساب کاربری به‌زودی ایجاد می‌شود";
+                case "Created": return "حساب کاربری ایجاد شد؛ می‌توانید وارد شوید";
+                case "Rejected": return "رد شده";
+                default: return "در انتظار بررسی";
+            }
+        }
+
+        // ------------------------------------------------------------------ ثبت‌نام (ناشناس)
+        private object RegisterAction()
+        {
+            if (!RegistrationEnabled) throw new ApiException(403, "ثبت‌نام در حال حاضر فعال نیست.");
+            if (user != null) throw new ApiException(400, "شما با حساب کاربری وارد شده‌اید.");
+            if (BStr("website", 200).Length > 0) return new Dictionary<string, object> { { "ok", true }, { "trackingCode", "-" } }; // فیلد تله‌ی ربات
+            if (!RateAllowed("reg", 5, TimeSpan.FromHours(1))) throw new ApiException(429, "تعداد درخواست‌ها از این نشانی زیاد است؛ یک ساعت دیگر دوباره تلاش کنید.");
+            if (!ValidateCaptcha(BStr("captchaToken", 2000), BStr("captchaAnswer", 10))) throw FieldError("captchaAnswer", "کد امنیتی نادرست یا منقضی شده است.");
+
+            string first = Regex.Replace(BStr("firstName", 60), "\\s+", " ");
+            string last = Regex.Replace(BStr("lastName", 80), "\\s+", " ");
+            string userName = BStr("userName", 40).ToLowerInvariant();
+            string password = BRaw("password", 100);
+            string mobile = NormalizeMobile(BStr("mobile", 30));
+            string company = BStr("company", 120);
+            Regex nameRx = new Regex("^[\\p{L}\\p{M}\\s\\u200c\\-'.]{2,50}$");
+            if (!nameRx.IsMatch(first)) throw FieldError("firstName", "نام را درست وارد کنید (۲ تا ۵۰ حرف).");
+            if (!nameRx.IsMatch(last)) throw FieldError("lastName", "نام خانوادگی را درست وارد کنید (۲ تا ۵۰ حرف).");
+            if (!Regex.IsMatch(userName, "^[a-z][a-z0-9._-]{2,19}$") || userName.EndsWith(".") || userName.Contains(".."))
+                throw FieldError("userName", "نام کاربری ۳ تا ۲۰ نویسه با حروف کوچک انگلیسی، عدد، نقطه، - یا _ و شروع با حرف باشد.");
+            if (ReservedUserNames.Contains(userName)) throw FieldError("userName", "این نام کاربری قابل استفاده نیست.");
+            string pwProblem = PasswordProblem(password, userName, first, last);
+            if (pwProblem != null) throw FieldError("password", pwProblem);
+            if (!Regex.IsMatch(mobile, "^09\\d{9}$")) throw FieldError("mobile", "شماره‌ی همراه معتبر نیست (مثال: 09121234567).");
+            if (company.Length > 100) throw FieldError("company", "نام شرکت حداکثر ۱۰۰ نویسه است.");
+
+            if (AdUserExists(userName)) throw FieldError("userName", "این نام کاربری قبلاً استفاده شده است؛ نام دیگری انتخاب کنید.");
+
+            string tracking = null;
+            string ip = ClientIp();
+            Elevated(delegate (SPWeb web)
+            {
+                if (FindRegistrations(web, "UserName", userName).Any(r => r.Status != "Rejected"))
+                    throw FieldError("userName", "این نام کاربری قبلاً درخواست شده است؛ نام دیگری انتخاب کنید.");
+                if (FindRegistrations(web, "Mobile", mobile).Any(r => r.Status == "Pending" || r.Status == "Approved"))
+                    throw FieldError("mobile", "درخواست دیگری با این شماره‌ی همراه در انتظار بررسی است.");
+                SPList list = RegistrationsList(web);
+                SPListItem it = list.AddItem();
+                it["Title"] = Truncate(first + " " + last, 255);
+                it["FirstName"] = first;
+                it["LastName"] = last;
+                it["UserName"] = userName;
+                it["Mobile"] = mobile;
+                it["Company"] = company;
+                it["PasswordEnc"] = HttpServerUtility.UrlTokenEncode(MachineKey.Protect(Encoding.UTF8.GetBytes(password), PasswordPurpose));
+                it["Status"] = "Pending";
+                it["SourceIp"] = Truncate(ip, 64);
+                it.Update();
+                tracking = "R-" + new PersianCalendar().GetYear(DateTime.Now).ToString(CultureInfo.InvariantCulture) + "-" + it.ID.ToString("0000", CultureInfo.InvariantCulture);
+                it["TrackingCode"] = tracking;
+                it.Update();
+                Notify(web, "درخواست ثبت‌نام جدید در پایگاه دانش: " + first + " " + last,
+                    "<div dir='rtl' style='font-family:Tahoma'>درخواست ثبت‌نام جدید:<br><b>" + HttpUtility.HtmlEncode(first + " " + last) + "</b><br>نام کاربری: " +
+                    HttpUtility.HtmlEncode(userName) + "<br>همراه: " + HttpUtility.HtmlEncode(mobile) + (company.Length > 0 ? "<br>شرکت: " + HttpUtility.HtmlEncode(company) : "") +
+                    "<br>کد پیگیری: " + tracking + "<br><br>برای بررسی: پنل مدیریت ← ثبت‌نام کاربران</div>");
+            });
+            return new Dictionary<string, object> { { "ok", true }, { "trackingCode", tracking } };
+        }
+
+        private object RegisterStatusAction()
+        {
+            if (!RateAllowed("regstatus", 20, TimeSpan.FromHours(1))) throw new ApiException(429, "تعداد درخواست‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.");
+            string userName = BStr("userName", 40).ToLowerInvariant();
+            string mobile = NormalizeMobile(BStr("mobile", 30));
+            RegRow found = null;
+            Elevated(delegate (SPWeb web)
+            {
+                found = FindRegistrations(web, "UserName", userName).Where(r => r.Mobile == mobile).OrderByDescending(r => r.Id).FirstOrDefault();
+            });
+            if (found == null || userName.Length == 0) throw new ApiException(404, "درخواستی با این نام کاربری و شماره‌ی همراه یافت نشد.");
+            return new Dictionary<string, object>
+            {
+                { "status", found.Status }, { "label", StatusLabel(found.Status) }, { "trackingCode", found.TrackingCode }, { "date", Iso(found.Created) },
+                { "note", found.Status == "Rejected" ? found.ReviewNote : "" }
+            };
+        }
+
+        // ------------------------------------------------------------------ مدیریت ثبت‌نام‌ها (مدیر سامانه)
+        private Dictionary<string, object> RegJson(RegRow r)
+        {
+            return new Dictionary<string, object>
+            {
+                { "id", r.Id }, { "fullName", r.FullName }, { "firstName", r.FirstName }, { "lastName", r.LastName }, { "userName", r.UserName },
+                { "mobile", r.Mobile }, { "company", r.Company }, { "status", r.Status }, { "trackingCode", r.TrackingCode }, { "date", Iso(r.Created) },
+                { "reviewedBy", r.ReviewedBy }, { "reviewedOn", Iso(r.ReviewedOn) }, { "note", r.ReviewNote }, { "adAccount", r.AdAccount }, { "adError", r.AdError },
+                { "hasPassword", r.PasswordEnc.Length > 0 }
+            };
+        }
+
+        private int PendingRegistrations()
+        {
+            int n = 0;
+            try
+            {
+                Elevated(delegate (SPWeb web)
+                {
+                    SPList list = web.Lists.TryGetList(RegistrationsListTitle);
+                    if (list == null) return;
+                    SPQuery q = new SPQuery();
+                    q.Query = "<Where>" + Caml("Status", "Text", "Pending") + "</Where>";
+                    q.ViewFields = "<FieldRef Name='ID' />";
+                    q.RowLimit = 5000;
+                    n = list.GetItems(q).Count;
+                });
+            }
+            catch { }
+            return n;
+        }
+
+        private object AdminRegistrations()
+        {
+            List<RegRow> all = new List<RegRow>();
+            Elevated(delegate (SPWeb web)
+            {
+                SPQuery q = new SPQuery();
+                q.Query = "<OrderBy><FieldRef Name='ID' Ascending='FALSE' /></OrderBy>";
+                q.RowLimit = 5000;
+                foreach (SPListItem it in RegistrationsList(web).GetItems(q)) all.Add(RegFromItem(it));
+            });
+            string status = Q("status");
+            string[] words = Norm(Q("q")).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            List<RegRow> rows = all.Where(r => (status.Length == 0 || r.Status == status) &&
+                (words.Length == 0 || words.All(w => Norm(r.FullName + " " + r.UserName + " " + r.Mobile + " " + r.Company + " " + r.TrackingCode).Contains(w)))).ToList();
+            Page<RegRow> page = Paginate(rows, QInt("page"), QInt("size") > 0 ? QInt("size") : 20);
+            Dictionary<string, object> counts = new Dictionary<string, object> { { "all", all.Count } };
+            foreach (string s in new[] { "Pending", "Approved", "Created", "Rejected" }) counts[s] = all.Count(r => r.Status == s);
+            string mode = Setting(cfg, "ADMode", "Manual");
+            return new Dictionary<string, object>
+            {
+                { "items", page.Items.Select(RegJson).ToList() }, { "total", page.Total }, { "page", page.Number }, { "pages", page.Pages }, { "counts", counts },
+                { "adMode", mode }, { "adReady", mode == "Auto" && Setting(cfg, "ADDomain", "").Length > 0 && Setting(cfg, "ADContainer", "").Length > 0 },
+                { "ad", new Dictionary<string, object> { { "domain", Setting(cfg, "ADDomain", "") }, { "container", Setting(cfg, "ADContainer", "") }, { "group", Setting(cfg, "ADGroup", "") }, { "upnSuffix", UpnSuffix() } } }
+            };
+        }
+
+        private string UpnSuffix() { return Setting(cfg, "ADUpnSuffix", Setting(cfg, "ADDomain", "")); }
+
+        private object AdminRegistrationAction()
+        {
+            int id = BInt("id");
+            string action = BStr("action", 20);
+            string note = BStr("note", 1000);
+            string actor = user.Name;
+            RegRow r = null;
+            Elevated(delegate (SPWeb web)
+            {
+                try { r = RegFromItem(RegistrationsList(web).GetItemById(id)); } catch (ArgumentException) { r = null; }
+            });
+            if (r == null) throw new ApiException(404, "درخواست یافت نشد.");
+
+            string newStatus = null, adAccount = null, adError = null;
+            bool clearPassword = false;
+            switch (action)
+            {
+                case "create":
+                    if (r.Status != "Pending" && r.Status != "Approved") throw new ApiException(400, "این درخواست قبلاً بررسی شده است.");
+                    if (Setting(cfg, "ADMode", "Manual") != "Auto") throw new ApiException(400, "ایجاد خودکار در Active Directory غیرفعال است (تنظیمات ← حالت ایجاد حساب).");
+                    if (r.PasswordEnc.Length == 0) throw new ApiException(400, "رمز عبور این درخواست در دسترس نیست؛ حساب را دستی ایجاد کنید.");
+                    string warning;
+                    try { adAccount = CreateAdUser(r, Unprotect(r.PasswordEnc), out warning); }
+                    catch (ApiException ex)
+                    {
+                        string message = ex.Message;
+                        Elevated(delegate (SPWeb web)
+                        {
+                            SPListItem it = RegistrationsList(web).GetItemById(id);
+                            it["AdError"] = Truncate(DateTime.Now.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture) + " — " + message, 2000);
+                            it.Update();
+                        });
+                        throw;
+                    }
+                    newStatus = "Created"; adError = warning ?? ""; clearPassword = true;
+                    break;
+                case "approve":
+                    if (r.Status != "Pending") throw new ApiException(400, "فقط درخواست‌های در انتظار قابل تأیید هستند.");
+                    newStatus = "Approved";
+                    break;
+                case "created":
+                    if (r.Status != "Pending" && r.Status != "Approved") throw new ApiException(400, "وضعیت درخواست اجازه‌ی این کار را نمی‌دهد.");
+                    newStatus = "Created"; adAccount = FirstNonEmpty(BStr("account", 200), r.UserName); clearPassword = true; adError = "";
+                    break;
+                case "reject":
+                    if (note.Length < 3) throw new ApiException(400, "دلیل رد درخواست را بنویسید؛ به متقاضی نمایش داده می‌شود.");
+                    if (r.Status == "Created") throw new ApiException(400, "حساب این کاربر ایجاد شده است؛ برای غیرفعال کردن از Active Directory اقدام کنید.");
+                    newStatus = "Rejected"; clearPassword = true;
+                    break;
+                case "delete":
+                    Elevated(delegate (SPWeb web) { RegistrationsList(web).GetItemById(id).Recycle(); });
+                    Audit("RegistrationDelete", 0, r.FullName, r.UserName);
+                    return Ok();
+                default:
+                    throw new ApiException(400, "عملیات نامعتبر است.");
+            }
+
+            RegRow saved = null;
+            Elevated(delegate (SPWeb web)
+            {
+                SPListItem it = RegistrationsList(web).GetItemById(id);
+                it["Status"] = newStatus;
+                it["ReviewedBy"] = Truncate(actor, 255);
+                it["ReviewedOn"] = DateTime.Now;
+                if (note.Length > 0) it["ReviewNote"] = note;
+                if (adAccount != null) it["AdAccount"] = Truncate(adAccount, 255);
+                if (adError != null) it["AdError"] = adError;
+                if (clearPassword) it["PasswordEnc"] = null;
+                it.Update();
+                saved = RegFromItem(it);
+            });
+            Audit(action == "create" ? "RegistrationCreate" : action == "approve" ? "RegistrationApprove" : action == "created" ? "RegistrationCreated" : "RegistrationReject",
+                0, r.FullName, r.UserName + (note.Length > 0 ? " — " + note : "") + (string.IsNullOrEmpty(adError) ? "" : " — " + adError));
+            return new Dictionary<string, object> { { "ok", true }, { "item", RegJson(saved) }, { "warning", adError ?? "" } };
+        }
+
+        /// <summary>نمایش رمز عبور برای ایجاد دستی حساب — فقط مدیر سامانه، با ثبت در گزارش فعالیت</summary>
+        private object AdminRegistrationPassword()
+        {
+            int id = BInt("id");
+            RegRow r = null;
+            Elevated(delegate (SPWeb web) { r = RegFromItem(RegistrationsList(web).GetItemById(id)); });
+            if (r.PasswordEnc.Length == 0 || (r.Status != "Pending" && r.Status != "Approved")) throw new ApiException(400, "رمز عبور این درخواست در دسترس نیست.");
+            Audit("RegistrationPassword", 0, r.FullName, r.UserName);
+            return new Dictionary<string, object> { { "ok", true }, { "password", Unprotect(r.PasswordEnc) } };
+        }
+
+        private static string Unprotect(string token)
+        {
+            try { return Encoding.UTF8.GetString(MachineKey.Unprotect(HttpServerUtility.UrlTokenDecode(token), PasswordPurpose)); }
+            catch { throw new ApiException(500, "رمزگشایی رمز عبور ممکن نشد (MachineKey سرورها یکسان نیست؟)."); }
+        }
+
+        // ------------------------------------------------------------------ Active Directory
+        private const AuthenticationTypes AdAuth = AuthenticationTypes.Secure | AuthenticationTypes.Sealing | AuthenticationTypes.Signing;
+
+        private static string LdapEscape(string s)
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (char c in s)
+            {
+                if (c == '\\' || c == '*' || c == '(' || c == ')' || c == '\0') sb.Append('\\').Append(((int)c).ToString("x2"));
+                else sb.Append(c);
+            }
+            return sb.ToString();
+        }
+
+        private static string EscapeRdn(string s)
+        {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (",+\"\\<>;=".IndexOf(c) >= 0 || (i == 0 && (c == '#' || c == ' ')) || (i == s.Length - 1 && c == ' ')) sb.Append('\\');
+                sb.Append(c);
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>آیا این نام کاربری در AD وجود دارد؟ اگر AD در دسترس نباشد false (بررسی نهایی هنگام ایجاد انجام می‌شود).</summary>
+        private bool AdUserExists(string userName)
+        {
+            string domain = Setting(cfg, "ADDomain", "");
+            if (domain.Length == 0) return false;
+            bool exists = false;
+            try
+            {
+                SPSecurity.RunWithElevatedPrivileges(delegate
+                {
+                    using (DirectoryEntry root = new DirectoryEntry("LDAP://" + domain, null, null, AdAuth))
+                    using (DirectorySearcher ds = new DirectorySearcher(root, "(&(objectCategory=person)(objectClass=user)(sAMAccountName=" + LdapEscape(userName) + "))", new[] { "sAMAccountName" }))
+                    {
+                        ds.ClientTimeout = TimeSpan.FromSeconds(8);
+                        exists = ds.FindOne() != null;
+                    }
+                });
+            }
+            catch (Exception ex) { Log(ex); }
+            return exists;
+        }
+
+        private string CreateAdUser(RegRow r, string password, out string warning)
+        {
+            string domain = Setting(cfg, "ADDomain", "");
+            string container = Setting(cfg, "ADContainer", "");
+            string group = Setting(cfg, "ADGroup", "");
+            string upn = r.UserName + "@" + UpnSuffix();
+            if (domain.Length == 0 || container.Length == 0) throw new ApiException(400, "تنظیمات Active Directory کامل نیست: «دامنه» و «OU مقصد» را در تنظیمات سامانه وارد کنید.");
+            string warn = null;
+            Exception failure = null;
+            string tracking = r.TrackingCode;
+            SPSecurity.RunWithElevatedPrivileges(delegate
+            {
+                // با هویت App Pool شیرپوینت اجرا می‌شود؛ این حساب باید روی OU مقصد مجوز ساخت کاربر و تنظیم رمز داشته باشد
+                try
+                {
+                    using (DirectoryEntry root = new DirectoryEntry("LDAP://" + domain, null, null, AdAuth))
+                    using (DirectorySearcher ds = new DirectorySearcher(root, "(&(objectCategory=person)(objectClass=user)(sAMAccountName=" + LdapEscape(r.UserName) + "))"))
+                    {
+                        if (ds.FindOne() != null) throw new ApiException(400, "نام کاربری «" + r.UserName + "» در Active Directory وجود دارد.");
+                    }
+                    using (DirectoryEntry ou = new DirectoryEntry("LDAP://" + domain + "/" + container, null, null, AdAuth))
+                    {
+                        DirectoryEntry u;
+                        try { u = AddUserObject(ou, r.FullName, r, upn, tracking); }
+                        catch (COMException ex)
+                        {
+                            if ((uint)ex.ErrorCode != 0x80071392) throw; // نام CN تکراری → نام کاربری به آن افزوده می‌شود
+                            u = AddUserObject(ou, r.FullName + " (" + r.UserName + ")", r, upn, tracking);
+                        }
+                        using (u)
+                        {
+                            try
+                            {
+                                u.Invoke("SetPassword", new object[] { password });
+                                u.Properties["userAccountControl"].Value = 0x200; // حساب عادی و فعال
+                                u.CommitChanges();
+                            }
+                            catch
+                            {
+                                try { u.DeleteTree(); } catch { }
+                                throw;
+                            }
+                            if (group.Length > 0)
+                            {
+                                try
+                                {
+                                    using (DirectoryEntry groot = new DirectoryEntry("LDAP://" + domain, null, null, AdAuth))
+                                    using (DirectorySearcher gs = new DirectorySearcher(groot, "(&(objectCategory=group)(|(sAMAccountName=" + LdapEscape(group) + ")(cn=" + LdapEscape(group) + ")))"))
+                                    {
+                                        SearchResult g = gs.FindOne();
+                                        if (g == null) warn = "حساب ایجاد شد ولی گروه «" + group + "» یافت نشد.";
+                                        else using (DirectoryEntry ge = g.GetDirectoryEntry())
+                                        {
+                                            ge.Properties["member"].Add(Convert.ToString(u.Properties["distinguishedName"].Value));
+                                            ge.CommitChanges();
+                                        }
+                                    }
+                                }
+                                catch (Exception gex) { warn = "حساب ایجاد شد ولی افزودن به گروه «" + group + "» ناموفق بود: " + AdMessage(gex); }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex) { failure = ex; }
+            });
+            if (failure != null)
+            {
+                if (failure is ApiException) throw failure;
+                Log(failure);
+                throw new ApiException(400, "ایجاد حساب در Active Directory ناموفق بود: " + AdMessage(failure));
+            }
+            warning = warn;
+            return upn;
+        }
+
+        private static DirectoryEntry AddUserObject(DirectoryEntry ou, string cn, RegRow r, string upn, string tracking)
+        {
+            DirectoryEntry u = ou.Children.Add("CN=" + EscapeRdn(cn), "user");
+            u.Properties["sAMAccountName"].Value = r.UserName;
+            u.Properties["userPrincipalName"].Value = upn;
+            u.Properties["givenName"].Value = r.FirstName;
+            u.Properties["sn"].Value = r.LastName;
+            u.Properties["displayName"].Value = r.FullName;
+            u.Properties["mobile"].Value = r.Mobile;
+            if (r.Company.Length > 0) u.Properties["company"].Value = r.Company;
+            u.Properties["description"].Value = "ثبت‌نام از پایگاه دانش — " + tracking;
+            u.CommitChanges();
+            return u;
+        }
+
+        private static string AdMessage(Exception ex)
+        {
+            Exception e = ex;
+            while (e is System.Reflection.TargetInvocationException && e.InnerException != null) e = e.InnerException;
+            uint code = 0;
+            COMException com = e as COMException;
+            if (com != null) code = (uint)com.ErrorCode;
+            DirectoryServicesCOMException ds = e as DirectoryServicesCOMException;
+            string extended = ds != null && !string.IsNullOrEmpty(ds.ExtendedErrorMessage) ? " (" + ds.ExtendedErrorMessage + ")" : "";
+            switch (code)
+            {
+                case 0x80070005: return "حساب سرویس شیرپوینت (App Pool) اجازه‌ی این کار را در OU ندارد؛ Delegate Control را بررسی کنید." + extended;
+                case 0x800708C5: return "رمز عبور با سیاست رمز دامنه سازگار نیست (طول، پیچیدگی یا تاریخچه)." + extended;
+                case 0x80072030: return "OU مقصد در Active Directory یافت نشد؛ مسیر را در تنظیمات بررسی کنید." + extended;
+                case 0x8007203A: return "ارتباط با کنترلر دامنه برقرار نشد." + extended;
+                case 0x80071392: return "شیئی با همین نام در OU وجود دارد." + extended;
+            }
+            return e.Message + extended;
         }
 
         // ------------------------------------------------------------------ ابزار

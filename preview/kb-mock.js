@@ -5,7 +5,7 @@
    ===================================================================== */
 (function (window) {
   'use strict';
-  var KEY = 'kb.mock.v3';
+  var KEY = 'kb.mock.v4';
   var ROLE_KEY = 'kb.mock.role';
   var MEDIA_ROOT = '/DocLib';
   var NOW = Date.now();
@@ -111,7 +111,8 @@
       settings: {
         SiteTitle: 'پایگاه دانش شستان', SiteSubtitle: 'شرکت سرمایه‌گذاری تجاری شستان', HeroTitle: 'هر آنچه برای رشد و یادگیری لازم دارید',
         HeroText: 'مقالات، ویدیوها، پادکست‌ها و راهنماهای سازمانی شستان را جستجو کنید، بیاموزید و تجربه‌های خود را به اشتراک بگذارید.',
-        FooterText: '', Copyright: 'شرکت سرمایه‌گذاری تجاری شستان', CommentsEnabled: 'true', CommentModeration: 'Post', NotifyEmails: 'hr@shastan.ir', DefaultVisibility: 'Public'
+        FooterText: '', Copyright: 'شرکت سرمایه‌گذاری تجاری شستان', CommentsEnabled: 'true', CommentModeration: 'Post', NotifyEmails: 'hr@shastan.ir', DefaultVisibility: 'Public',
+        RegistrationEnabled: 'true', ADMode: 'Manual', ADDomain: 'ad.shastangroup.ir', ADContainer: 'OU=KB Users,OU=Shastan Portal,DC=ad,DC=shastangroup,DC=ir', ADUpnSuffix: '', ADGroup: 'KB-Members'
       },
       audit: [{ date: new Date(NOW - DAY).toISOString(), actor: 'منابع انسانی', action: 'Publish', contentId: 1, title: defs[0][0], details: '' }]
     };
@@ -313,7 +314,8 @@
     adminMeta: function () {
       return needManager() || delay({
         contentList: 'KnowledgeContent', mediaUrl: MEDIA_ROOT, mediaTitle: 'DocLib', types: ['مقاله', 'ویدیو', 'پادکست', 'راهنما', 'گزارش', 'گزارش تصویری', 'سند و فایل', 'خبر', 'اینفوگرافیک', 'پرسش و پاسخ'],
-        categoryChoices: [], defaultVisibility: db.settings.DefaultVisibility, maxUploadMb: 250, pendingComments: db.comments.filter(function (c) { return c.status === 'Pending'; }).length, version: 'preview'
+        categoryChoices: [], defaultVisibility: db.settings.DefaultVisibility, maxUploadMb: 250, pendingComments: db.comments.filter(function (c) { return c.status === 'Pending'; }).length, version: 'preview',
+        pendingRegistrations: me().role === 'admin' ? regs().filter(function (r) { return r.status === 'Pending'; }).length : 0
       });
     },
     adminDashboard: function () {
@@ -451,6 +453,74 @@
       Object.keys(v).forEach(function (k) { db.settings[k] = v[k]; }); audit('Settings', null, Object.keys(v).join('، ')); persist();
       return delay({ ok: true });
     },
+
+    // ---- ثبت‌نام (همان قواعد KBApi.ashx)
+    captcha: function () {
+      var code = String(Math.floor(10000 + Math.random() * 89999));
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="150" height="46"><rect width="150" height="46" fill="#f1f5f9"/>' +
+        code.split('').map(function (d, i) { return '<text x="' + (14 + i * 27) + '" y="32" font-size="24" font-family="Tahoma" font-weight="bold" fill="#005a00" transform="rotate(' + (i % 2 ? 8 : -8) + ' ' + (22 + i * 27) + ' 23)">' + d + '</text>'; }).join('') +
+        '<line x1="5" y1="12" x2="145" y2="34" stroke="#94a3b8"/></svg>';
+      captchaCode = code;
+      return delay({ token: 'mock-' + code, image: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) });
+    },
+    register: function (d) {
+      if (db.settings.RegistrationEnabled !== 'true') return fail(403, 'ثبت‌نام در حال حاضر فعال نیست.');
+      if (me()) return fail(400, 'شما با حساب کاربری وارد شده‌اید.');
+      if (d.captchaAnswer !== captchaCode) return fail(400, 'کد امنیتی نادرست یا منقضی شده است.', 'field:captchaAnswer');
+      captchaCode = null;
+      var list = regs();
+      if (list.some(function (r) { return r.userName === d.userName && r.status !== 'Rejected'; }) || ['admin', 'demo', 'hr'].indexOf(d.userName) >= 0)
+        return fail(400, 'این نام کاربری قبلاً استفاده شده است؛ نام دیگری انتخاب کنید.', 'field:userName');
+      if (list.some(function (r) { return r.mobile === d.mobile && (r.status === 'Pending' || r.status === 'Approved'); }))
+        return fail(400, 'درخواست دیگری با این شماره‌ی همراه در انتظار بررسی است.', 'field:mobile');
+      var id = (db.nextReg = (db.nextReg || list.length + 1)) ; db.nextReg++;
+      var r = { id: id, firstName: d.firstName, lastName: d.lastName, fullName: d.firstName + ' ' + d.lastName, userName: d.userName, mobile: d.mobile, company: d.company || '',
+        status: 'Pending', trackingCode: 'R-1405-' + String(id).padStart(4, '0'), date: new Date().toISOString(), reviewedBy: '', reviewedOn: null, note: '', adAccount: '', adError: '', password: d.password };
+      list.push(r); persist();
+      return delay({ ok: true, trackingCode: r.trackingCode });
+    },
+    registerStatus: function (userName, mobile) {
+      var r = regs().filter(function (x) { return x.userName === userName && x.mobile === mobile; }).pop();
+      if (!r) return fail(404, 'درخواستی با این نام کاربری و شماره‌ی همراه یافت نشد.');
+      var labels = { Pending: 'در انتظار بررسی', Approved: 'تأیید شده — حساب کاربری به‌زودی ایجاد می‌شود', Created: 'حساب کاربری ایجاد شد؛ می‌توانید وارد شوید', Rejected: 'رد شده' };
+      return delay({ status: r.status, label: labels[r.status], trackingCode: r.trackingCode, date: r.date, note: r.status === 'Rejected' ? r.note : '' });
+    },
+    adminRegistrations: function (p) {
+      if (!me() || me().role !== 'admin') return fail(403, 'فقط مدیر سامانه');
+      var all = regs().slice().reverse(), q = norm(p.q || '');
+      var rows = all.filter(function (r) { return (!p.status || r.status === p.status) && (!q || norm([r.fullName, r.userName, r.mobile, r.company, r.trackingCode].join(' ')).indexOf(q) >= 0); })
+        .map(function (r) { var o = Object.assign({}, r, { hasPassword: !!r.password }); delete o.password; return o; });
+      var res = page(rows, p);
+      res.counts = { all: all.length };
+      ['Pending', 'Approved', 'Created', 'Rejected'].forEach(function (s2) { res.counts[s2] = all.filter(function (r) { return r.status === s2; }).length; });
+      res.adMode = db.settings.ADMode;
+      res.adReady = db.settings.ADMode === 'Auto' && !!db.settings.ADDomain && !!db.settings.ADContainer;
+      res.ad = { domain: db.settings.ADDomain, container: db.settings.ADContainer, group: db.settings.ADGroup, upnSuffix: db.settings.ADUpnSuffix || db.settings.ADDomain };
+      return delay(res);
+    },
+    adminRegistrationAction: function (id, action, extra) {
+      if (!me() || me().role !== 'admin') return fail(403, 'فقط مدیر سامانه');
+      var list = regs(), r = list.filter(function (x) { return x.id === id; })[0];
+      if (!r) return fail(404, 'درخواست یافت نشد.');
+      extra = extra || {};
+      if (action === 'delete') { db.registrations = list.filter(function (x) { return x !== r; }); persist(); return delay({ ok: true }); }
+      if (action === 'reject' && (!extra.note || extra.note.length < 3)) return fail(400, 'دلیل رد درخواست را بنویسید.');
+      if (action === 'create' && db.settings.ADMode !== 'Auto') return fail(400, 'ایجاد خودکار در Active Directory غیرفعال است.');
+      r.status = { create: 'Created', approve: 'Approved', created: 'Created', reject: 'Rejected' }[action];
+      r.reviewedBy = me().name; r.reviewedOn = new Date().toISOString();
+      if (extra.note) r.note = extra.note;
+      if (action === 'create' || action === 'created') { r.adAccount = extra.account || r.userName + '@' + (db.settings.ADUpnSuffix || db.settings.ADDomain); }
+      if (r.status !== 'Approved') delete r.password;
+      audit({ create: 'RegistrationCreate', approve: 'RegistrationApprove', created: 'RegistrationCreated', reject: 'RegistrationReject' }[action], null, r.fullName + ' — ' + r.userName);
+      persist();
+      return delay({ ok: true, item: r, warning: '' });
+    },
+    adminRegistrationPassword: function (id) {
+      var r = regs().filter(function (x) { return x.id === id; })[0];
+      if (!r || !r.password) return fail(400, 'رمز عبور این درخواست در دسترس نیست.');
+      audit('RegistrationPassword', null, r.fullName);
+      return delay({ ok: true, password: r.password });
+    },
     adminAudit: function (p) {
       if (!me() || me().role !== 'admin') return fail(403, 'فقط مدیر سامانه');
       var q = norm(p.q || '');
@@ -494,6 +564,17 @@
     }
   };
   function U(n) { return Number(n).toLocaleString('fa-IR'); }
+  var captchaCode = null;
+  function regs() {
+    if (!db.registrations) {
+      db.registrations = [
+        { id: 1, firstName: 'نیلوفر', lastName: 'کاظمی', fullName: 'نیلوفر کاظمی', userName: 'n.kazemi', mobile: '09121234567', company: 'پتروشیمی بوشهر', status: 'Pending', trackingCode: 'R-1405-0001', date: new Date(NOW - 3600000 * 3).toISOString(), reviewedBy: '', reviewedOn: null, note: '', adAccount: '', adError: '', password: 'Kb!2026pass' },
+        { id: 2, firstName: 'محمد', lastName: 'صادقی', fullName: 'محمد صادقی', userName: 'm.sadeghi', mobile: '09351112233', company: '', status: 'Created', trackingCode: 'R-1405-0002', date: new Date(NOW - DAY * 2).toISOString(), reviewedBy: 'مدیر سامانه', reviewedOn: new Date(NOW - DAY).toISOString(), note: '', adAccount: 'm.sadeghi@ad.shastangroup.ir', adError: '' }
+      ];
+      db.nextReg = 3;
+    }
+    return db.registrations;
+  }
   window.KB_MOCK_API = api;
 
   // نوار انتخاب نقش برای نمایش

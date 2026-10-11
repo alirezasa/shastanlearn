@@ -4,10 +4,10 @@
 
 | کاربر | چه می‌بیند / چه می‌کند |
 |-------|------------------------|
-| **عمومی** (بدون ورود) | محتوای «عمومی» منتشرشده: مقاله، ویدیو، پادکست، راهنما، گزارش، فایل‌های پیوست |
+| **عمومی** (بدون ورود) | محتوای «عمومی» منتشرشده: مقاله، ویدیو، پادکست، راهنما، گزارش، فایل‌های پیوست؛ ثبت‌نام و پیگیری درخواست |
 | **کارمند** (ورود با حساب `ad.shastangroup.ir`) | + محتوای «ویژه‌ی کارکنان»، پسند، ذخیره برای بعد، ثبت نظر و پاسخ |
 | **منابع انسانی** (گروه `KB-HR`) | + پنل مدیریت محتوا: ویرایشگر حرفه‌ای، زمان‌بندی انتشار، کتابخانه‌ی رسانه، پیوست‌ها، دسته‌ها، تأیید نظرات |
-| **مدیر سامانه** (گروه `KB-Admins`) | + دسترسی کامل، تنظیمات سامانه، گزارش فعالیت |
+| **مدیر سامانه** (گروه `KB-Admins`) | + دسترسی کامل، تأیید ثبت‌نام‌ها و ایجاد حساب در Active Directory، تنظیمات سامانه، گزارش فعالیت |
 
 داده‌ها در لیست موجود **`KnowledgeContent`** و رسانه‌ها در کتابخانه‌ی **`DocLib`** می‌مانند.
 
@@ -17,6 +17,7 @@
 |-----|-------|
 | [`docs/01-review-and-design.md`](docs/01-review-and-design.md) | بررسی قالب اولیه، معماری، نقش‌ها و مجوزها، لیست‌ها و ستون‌ها، امکانات صفحات و پنل |
 | [`docs/02-deployment.md`](docs/02-deployment.md) | **راهنمای گام‌به‌گام نصب روی شیرپوینت**، تست و رفع اشکال |
+| [`docs/03-registration-and-login.md`](docs/03-registration-and-login.md) | ثبت‌نام کاربران، ایجاد حساب در Active Directory (خودکار یا دستی) و صفحه‌ی ورود اختصاصی (Forms + LDAP) |
 
 ## نصب سریع
 
@@ -30,6 +31,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\Install-KBPortal.ps1               # لیست‌ها، ستون‌ها، گروه‌ها، مجوزها
 .\Install-KBLayouts.ps1              # سرویس KBApi.ashx — روی همه‌ی سرورهای وب
 .\Deploy-KBFiles.ps1                 # مستر پیج، صفحات، CSS/JS
+.\Set-KBFormsAuth.ps1                # (اختیاری) صفحه‌ی ورود اختصاصی — پس از تنظیم web.config، docs/03
 .\Test-KBAnonymous.ps1               # بررسی دسترسی‌ها
 ```
 
@@ -41,10 +43,11 @@ Set-ExecutionPolicy -Scope Process Bypass
 sharepoint/                    ← بسته‌ی استقرار
   provisioning/                اسکریپت‌های PowerShell + kb.config.json
   masterpage/kb.master         مستر پیج (فقط صفحات پایگاه دانش)
-  KBPages/                     index.aspx · browse.aspx · content.aspx
+  KBPages/                     index.aspx · browse.aspx · content.aspx · register.aspx
   KBPanel/panel.aspx           پنل مدیریت محتوا
   KBAssets/                    css/kb.css · js/*.js · fonts · img
   layouts/KB/KBApi.ashx        سرویس سمت سرور (C#)
+  layouts/KB/login.aspx        صفحه‌ی ورود اختصاصی (Forms + LDAP)
 preview/                       پیش‌نمایش محلی با داده‌ی نمایشی (بدون شیرپوینت)
 tools/                         serve.mjs · gen-icons.mjs · handler-check (بررسی کامپایل C#)
 docs/                          مستندات
