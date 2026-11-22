@@ -23,7 +23,7 @@
     'landmark', 'building', 'newspaper', 'help', 'star', 'globe', 'git-branch', 'activity', 'list-checks', 'calendar', 'mail'];
   var COLORS = ['#008000', '#0284c7', '#c22c2c', '#7c3aed', '#d97706', '#0d9488', '#db2777', '#4f46e5', '#ea580c', '#475569', '#0891b2', '#65a30d'];
   var ACTIONS = { Create: 'ایجاد', Update: 'ویرایش', Publish: 'انتشار', Unpublish: 'خارج کردن از انتشار', Archive: 'بایگانی', Delete: 'حذف', Duplicate: 'کپی',
-    Status: 'تغییر وضعیت', CommentApprove: 'تأیید نظر', CommentHide: 'مخفی کردن نظر', CommentDelete: 'حذف نظر', CategorySave: 'ذخیره‌ی دسته', CategoryDelete: 'حذف دسته', RegistrationCreate: 'ایجاد حساب AD', RegistrationApprove: 'تأیید ثبت‌نام', RegistrationCreated: 'ثبت ایجاد دستی حساب', RegistrationReject: 'رد ثبت‌نام', RegistrationDelete: 'حذف درخواست ثبت‌نام', RegistrationPassword: 'مشاهده‌ی رمز ثبت‌نام', Settings: 'تغییر تنظیمات', Visibility: 'تغییر سطح دسترسی', Featured: 'تغییر ویژه' };
+    Status: 'تغییر وضعیت', CommentApprove: 'تأیید نظر', CommentHide: 'مخفی کردن نظر', CommentDelete: 'حذف نظر', CategorySave: 'ذخیره‌ی دسته', CategoryDelete: 'حذف دسته', RegistrationCreate: 'ایجاد حساب AD', RegistrationApprove: 'تأیید ثبت‌نام', RegistrationCreated: 'ثبت ایجاد دستی حساب', RegistrationReject: 'رد ثبت‌نام', RegistrationDelete: 'حذف درخواست ثبت‌نام', RegistrationPassword: 'مشاهده‌ی رمز ثبت‌نام', EditorAdd: 'افزودن مدیر محتوا', EditorRemove: 'حذف مدیر محتوا', Audience: 'تعیین کاربران مجاز', Settings: 'تغییر تنظیمات', Visibility: 'تغییر سطح دسترسی', Featured: 'تغییر ویژه' };
 
   function statusOf(it) {
     if (it.status === 'Published' && it.publishAt && new Date(it.publishAt) > new Date()) return 'Scheduled';
@@ -45,7 +45,7 @@
       ['', 'dashboard', 'داشبورد'], ['content', 'library', 'همه‌ی محتوا'], ['edit/new', 'plus', 'افزودن محتوا'], ['media', 'images', 'کتابخانه‌ی رسانه'],
       ['comments', 'messages', 'نظرات'], ['categories', 'folder-open', 'دسته‌بندی‌ها']
     ];
-    var adminLinks = [['registrations', 'user-plus', 'ثبت‌نام کاربران'], ['settings', 'settings', 'تنظیمات سامانه'], ['audit', 'history', 'گزارش فعالیت']];
+    var adminLinks = [['editors', 'user-check', 'مدیران محتوا'], ['registrations', 'user-plus', 'ثبت‌نام کاربران'], ['settings', 'settings', 'تنظیمات سامانه'], ['audit', 'history', 'گزارش فعالیت']];
     function link(l) {
       var active = route === l[0] || (l[0] === 'content' && route.indexOf('edit/') === 0 && route !== 'edit/new');
       return html`<a class="kb-side-link ${active ? 'is-active' : ''}" href="#/${l[0]}">${icon(l[1])}${l[2]}${l[0] === 'comments' && pendingCount ? html`<span class="kb-badge">${U.faNum(pendingCount)}</span>` : ''}${l[0] === 'registrations' && meta && meta.pendingRegistrations ? html`<span class="kb-badge">${U.faNum(meta.pendingRegistrations)}</span>` : ''}</a>`;
@@ -86,6 +86,7 @@
     if (p === 'comments') return commentsPage(r.params);
     if (p === 'categories') return categoriesPage();
     if (p === 'settings' && KB.can.admin()) return settingsPage();
+    if (p === 'editors' && KB.can.admin()) return editorsPage();
     if (p === 'audit' && KB.can.admin()) return auditPage();
     if (p === 'registrations' && KB.can.admin()) return registrationsPage(r.params);
     U.mount(main, ui.empty('help', 'صفحه یافت نشد', '', html`<a class="kb-btn kb-btn-brand" href="#/">داشبورد</a>`));
@@ -261,7 +262,7 @@
     U.on(bulk, 'click', '[data-bulk]', function (e, b) { refreshAfter(api.adminStatus(selected, b.getAttribute('data-bulk')), 'وضعیت ' + U.faNum(selected.length) + ' مورد تغییر کرد.'); });
     U.on(bulk, 'click', '[data-bulk-vis]', function (e, b) {
       var v = b.getAttribute('data-bulk-vis');
-      ui.confirm('سطح دسترسی ' + U.faNum(selected.length) + ' مورد «' + KB.VISIBILITY[v] + '» شود؟', { detail: v === 'Public' ? 'این محتواها بدون ورود برای همه قابل مشاهده می‌شوند.' : '' }).then(function (ok) {
+      ui.confirm('سطح دسترسی ' + U.faNum(selected.length) + ' مورد «' + KB.VISIBILITY[v] + '» شود؟', { detail: v === 'Public' ? 'این محتواها بدون ورود برای همه قابل مشاهده می‌شوند.' : 'تا وقتی در صفحه‌ی ویرایش هر محتوا کاربران مجاز را انتخاب نکنید، فقط مدیران محتوا آن‌ها را می‌بینند.' }).then(function (ok) {
         if (ok) refreshAfter(api.adminStatus(selected, null, { visibility: v }), 'سطح دسترسی به‌روز شد.');
       });
     });
@@ -347,7 +348,7 @@
                 <span class="kb-label">${icon('users', 'kb-ico-sm')} افراد و گروه‌های مجاز</span>
                 <div class="kb-aud-list" data-aud-list></div>
                 <div class="kb-autocomplete"><input class="kb-input" data-aud-q autocomplete="off" placeholder="جست‌وجوی نام، نام کاربری یا گروه AD…" aria-label="افزودن فرد یا گروه"><div class="kb-suggest" hidden data-aud-suggest></div></div>
-                <button type="button" class="kb-btn kb-btn-link kb-btn-sm" data-aud-all style="margin-top:6px">${icon('user-plus', 'kb-ico-sm')}همه‌ی کاربران دامنه (KB-Readers)</button>
+                <button type="button" class="kb-btn kb-btn-link kb-btn-sm" data-aud-all style="margin-top:6px">${icon('user-plus', 'kb-ico-sm')}همه‌ی کاربران (مشاهده‌کنندگان عمومی)</button>
               </div>
               <div class="kb-field"><label class="kb-label" for="f-date">زمان انتشار <small>(خالی = همین حالا)</small></label><div id="kb-date-host"></div></div>
               <div class="kb-field"><label class="kb-switch"><input type="checkbox" name="featured" ${it.featured ? raw('checked') : ''}><span class="kb-switch-track"></span>نمایش در بخش ویژه‌ی صفحه‌ی اصلی</label></div>
@@ -440,7 +441,7 @@
     function drawAud() {
       U.mount(audList, state.audience.length
         ? state.audience.map(function (a, i) { return html`<span class="kb-chip-x" title="${AUD_TYPE[a.type] || ''} — ${a.key}">${icon(AUD_ICON[a.type] || 'user', 'kb-ico-sm')}${a.name || a.key}<button type="button" data-aud-rm="${i}" aria-label="حذف">${icon('x', 'kb-ico-sm')}</button></span>`; })
-        : html`<span class="kb-hint">هنوز کسی انتخاب نشده؛ فقط مدیران سامانه و منابع انسانی این محتوا را می‌بینند.</span>`);
+        : html`<span class="kb-hint">نام کاربرانی را که این محتوا را می‌بینند جست‌وجو و انتخاب کنید (الزامی). مدیران محتوا همیشه دسترسی دارند.</span>`);
     }
     function addAud(a) {
       if (!a || !a.key) return;
@@ -449,7 +450,7 @@
     }
     drawAud();
     U.on(audList, 'click', '[data-aud-rm]', function (e, b) { state.audience.splice(Number(b.getAttribute('data-aud-rm')), 1); drawAud(); markDirty(); });
-    U.on(form, 'click', '[data-aud-all]', function () { addAud({ key: 'KB-Readers', name: 'همه‌ی کاربران دامنه (KB-Readers)', type: 'spgroup' }); });
+    U.on(form, 'click', '[data-aud-all]', function () { addAud({ key: 'KB-Readers', name: 'مشاهده‌کنندگان عمومی (همه‌ی کاربران)', type: 'spgroup' }); });
     var audSeq = 0;
     audQ.addEventListener('input', U.debounce(function () {
       var q = audQ.value.trim(), seq = ++audSeq;
@@ -723,6 +724,7 @@
     function validate(d) {
       var bad = null;
       if (!d.title) bad = [form.elements.title, 'عنوان را وارد کنید.'];
+      else if (d.visibility === 'Private' && !d.audience.length) bad = [audQ, 'محتوا اختصاصی است؛ دست‌کم یک کاربر مجاز را انتخاب کنید.'];
       else if (d.status === 'Published' && !U.stripHtml(d.body) && !d.media && !state.attachments.length) bad = [null, 'متن محتوا خالی است؛ متن، رسانه یا پیوست اضافه کنید.'];
       if (bad) { if (bad[0]) { bad[0].setAttribute('aria-invalid', 'true'); bad[0].focus(); } ui.toast(bad[1], 'error'); return false; }
       form.elements.title.removeAttribute('aria-invalid');
@@ -1246,7 +1248,7 @@
           <div class="kb-kv"><span>لیست محتوا</span><b>${meta.contentList}</b></div>
           <div class="kb-kv"><span>کتابخانه‌ی رسانه</span><b style="direction:ltr">${meta.mediaUrl}</b></div>
           <div class="kb-kv"><span>نسخه‌ی سرویس</span><b style="direction:ltr">${meta.version || ''}</b></div>
-          <p class="kb-hint">گروه‌ها: KB-Admins (مدیر سامانه)، KB-HR (منابع انسانی/مدیر محتوا). اعضا از طریق گروه‌های Active Directory تعیین می‌شوند.</p>
+          <p class="kb-hint">گروه‌ها: KB-Admins (مدیر سامانه)، KB-HR (مدیران محتوا — اعضا از منوی «مدیران محتوا» اضافه می‌شوند)، KB-Readers (مشاهده‌کنندگان عمومی — همه‌ی کاربران).</p>
         </div></div>`);
       U.$('[data-sf]', main).addEventListener('submit', function (e) {
         e.preventDefault();
@@ -1259,6 +1261,53 @@
         }).catch(function (e2) { ui.busy(b, false); err(e2); });
       });
     }).catch(function (e) { U.mount(main, ui.errorBox(e)); });
+  }
+
+  /* ==================================================================== مدیران محتوا (گروه شیرپوینت KB-HR) */
+  function editorsPage() {
+    var title = head('مدیران محتوا', 'user-check', 'اعضای گروه شیرپوینتی KB-HR: ایجاد و ویرایش محتوا، رسانه، دسته‌ها و نظرات');
+    U.mount(main, html`${title}${loadingBox()}`);
+    function load() {
+      api.adminEditors().then(function (r) {
+        var items = r.items || [];
+        U.mount(main, html`${title}
+          <div class="kb-panel-box" style="max-width:760px"><div class="kb-panel-box-body">
+            <div class="kb-autocomplete" style="margin-bottom:14px"><input class="kb-input" data-ed-q autocomplete="off" placeholder="افزودن مدیر محتوا: جست‌وجوی نام یا نام کاربری…" aria-label="افزودن مدیر محتوا"><div class="kb-suggest" hidden data-ed-suggest></div></div>
+            ${items.length ? html`<table class="kb-table"><thead><tr><th>نام</th><th>حساب</th><th></th></tr></thead><tbody>
+              ${items.map(function (u) { return html`<tr><td><div class="kb-row">${ui.avatar(u.name)}<b>${u.name}</b></div></td><td dir="ltr" style="text-align:right"><small>${u.key}</small></td>
+                <td style="text-align:left"><button type="button" class="kb-btn kb-btn-ghost kb-btn-sm" data-ed-rm="${u.id}" data-name="${u.name}">${icon('user-x')}حذف</button></td></tr>`; })}
+            </tbody></table>` : ui.empty('users', 'هنوز مدیر محتوایی اضافه نشده است', 'با جست‌وجوی بالا کاربران را به گروه KB-HR اضافه کنید.')}
+            <p class="kb-hint" style="margin-top:12px">این گروه فقط در شیرپوینت است (نه Active Directory). مدیران سامانه (KB-Admins) همه‌ی این دسترسی‌ها را دارند.</p>
+          </div></div>`);
+        var q = U.$('[data-ed-q]', main), sug = U.$('[data-ed-suggest]', main), seq = 0;
+        q.addEventListener('input', U.debounce(function () {
+          var v = q.value.trim(), my = ++seq;
+          if (v.length < 2) { sug.hidden = true; return; }
+          api.adminPeople(v).then(function (res) {
+            if (my !== seq) return;
+            var list = (res.items || []).filter(function (p) { return p.type === 'user'; });
+            sug._list = list;
+            U.mount(sug, list.length ? list.map(function (p, i) { return html`<button type="button" class="kb-suggest-item" style="width:100%" data-ed-pick="${i}">${ui.avatar(p.name)}<span class="kb-grow">${p.name}<small>${p.detail || p.key}</small></span></button>`; })
+              : html`<div class="kb-suggest-item kb-muted">کاربری پیدا نشد</div>`);
+            sug.hidden = false;
+          }).catch(function (e) { ui.toast(e.message, 'error'); });
+        }, 300));
+        q.addEventListener('blur', function () { setTimeout(function () { sug.hidden = true; }, 200); });
+        U.on(sug, 'mousedown', '[data-ed-pick]', function (e, b) {
+          e.preventDefault();
+          var p = sug._list[Number(b.getAttribute('data-ed-pick'))];
+          sug.hidden = true; q.value = '';
+          api.adminEditorAdd(p.key).then(function () { ui.toast(p.name + ' به مدیران محتوا اضافه شد.', 'success'); load(); }).catch(function (e2) { ui.toast(e2.message, 'error'); });
+        });
+        U.on(main, 'click', '[data-ed-rm]', function (e, b) {
+          var name = b.getAttribute('data-name');
+          ui.confirm(name + ' از مدیران محتوا حذف شود؟', { detail: 'دیگر به پنل مدیریت محتوا دسترسی نخواهد داشت.' }).then(function (ok) {
+            if (ok) api.adminEditorRemove(Number(b.getAttribute('data-ed-rm'))).then(function () { ui.toast('حذف شد.', 'success'); load(); }).catch(function (e2) { ui.toast(e2.message, 'error'); });
+          });
+        });
+      }).catch(function (e) { U.mount(main, ui.errorBox(e)); });
+    }
+    load();
   }
 
   /* ==================================================================== ثبت‌نام کاربران (مدیر سامانه) */

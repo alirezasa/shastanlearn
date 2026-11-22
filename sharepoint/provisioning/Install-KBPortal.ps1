@@ -191,6 +191,9 @@ function Ensure-Group([string]$name, [string]$description) {
     $owner = if ($web.AssociatedOwnerGroup) { $web.AssociatedOwnerGroup } else { $site.Owner }
     $web.SiteGroups.Add($name, $owner, $null, $description)
     $g = $web.SiteGroups[$name]
+  } elseif ($g.Description -ne $description) {
+    $g.Description = $description
+    $g.Update()
   }
   return $g
 }
@@ -222,8 +225,8 @@ function Grant($securable, $principal, $roleDef) {
 }
 
 $gAdmins = Ensure-Group 'KB-Admins' 'مدیران سامانه‌ی پایگاه دانش (دسترسی کامل)'
-$gHR = Ensure-Group 'KB-HR' 'منابع انسانی — مدیریت محتوا، رسانه و نظرات پایگاه دانش'
-$gReaders = Ensure-Group 'KB-Readers' 'همه‌ی کارکنان واردشده (مشاهده‌ی محتوای عمومی و خصوصی)'
+$gHR = Ensure-Group 'KB-HR' 'مدیران محتوا — اعضا مستقیماً در شیرپوینت اضافه می‌شوند (پنل ← مدیران محتوا) — مدیریت محتوا، رسانه و نظرات پایگاه دانش'
+$gReaders = Ensure-Group 'KB-Readers' 'مشاهده‌کنندگان عمومی — همه‌ی کاربران واردشده (مشاهده‌ی محتوای عمومی و خصوصی)'
 Add-Members $gAdmins $config.AdminsMembers
 Add-Members $gHR $config.HRMembers
 Add-Members $gReaders $config.ReadersMembers

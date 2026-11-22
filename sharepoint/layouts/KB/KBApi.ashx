@@ -210,6 +210,9 @@ namespace Shastan.KB
                     case "admin-settings": RequireAdmin(); return AdminSettings();
                     case "admin-settings-save": RequirePost(isPost); RequireAdmin(); return AdminSettingsSave();
                     case "admin-audit": RequireAdmin(); return AdminAudit();
+                    case "admin-editors": RequireAdmin(); return AdminEditors();
+                    case "admin-editor-add": RequirePost(isPost); RequireAdmin(); return AdminEditorAdd();
+                    case "admin-editor-remove": RequirePost(isPost); RequireAdmin(); return AdminEditorRemove();
                     case "admin-registrations": RequireAdmin(); return AdminRegistrations();
                     case "admin-registration-action": RequirePost(isPost); RequireAdmin(); return AdminRegistrationAction();
                     case "admin-registration-password": RequirePost(isPost); RequireAdmin(); return AdminRegistrationPassword();
@@ -1642,6 +1645,61 @@ namespace Shastan.KB
                 });
             }
             return new Dictionary<string, object> { { "items", items } };
+        }
+
+        // ------------------------------------------------------------------ اعضای گروه مدیران محتوا (گروه شیرپوینت KB-HR)
+        private const string EditorsGroup = "KB-HR";
+
+        private static SPGroup FindGroup(SPWeb web, string name)
+        {
+            foreach (SPGroup g in web.SiteGroups) if (string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase)) return g;
+            throw new ApiException(500, "گروه «" + name + "» در سایت وجود ندارد؛ Install-KBPortal.ps1 را اجرا کنید.");
+        }
+
+        private object AdminEditors()
+        {
+            List<Dictionary<string, object>> items = new List<Dictionary<string, object>>();
+            Elevated(delegate (SPWeb web)
+            {
+                foreach (SPUser u in FindGroup(web, EditorsGroup).Users)
+                {
+                    Dictionary<string, object> j = PrincipalJson(u);
+                    j["id"] = u.ID;
+                    items.Add(j);
+                }
+            });
+            return new Dictionary<string, object> { { "group", EditorsGroup }, { "items", items.OrderBy(i => Convert.ToString(i["name"])).ToList() } };
+        }
+
+        private object AdminEditorAdd()
+        {
+            string key = BStr("key", 255);
+            if (key.Length == 0) throw new ApiException(400, "کاربر را انتخاب کنید.");
+            string name = "";
+            Elevated(delegate (SPWeb web)
+            {
+                SPUser u;
+                try { u = web.EnsureUser(key); } catch (Exception) { throw new ApiException(400, "کاربر «" + key + "» پیدا نشد."); }
+                FindGroup(web, EditorsGroup).AddUser(u);
+                name = string.IsNullOrEmpty(u.Name) ? u.LoginName : u.Name;
+            });
+            Audit("EditorAdd", 0, EditorsGroup, name);
+            return Ok();
+        }
+
+        private object AdminEditorRemove()
+        {
+            int id = BInt("id");
+            string name = "";
+            Elevated(delegate (SPWeb web)
+            {
+                SPUser u;
+                try { u = web.SiteUsers.GetByID(id); } catch (Exception) { throw new ApiException(404, "کاربر پیدا نشد."); }
+                FindGroup(web, EditorsGroup).RemoveUser(u);
+                name = string.IsNullOrEmpty(u.Name) ? u.LoginName : u.Name;
+            });
+            Audit("EditorRemove", 0, EditorsGroup, name);
+            return Ok();
         }
 
         // ------------------------------------------------------------------ ورود خودکار ویندوزی

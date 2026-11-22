@@ -465,6 +465,9 @@
     adminList: function (p) { return callHandler('admin-list', p); },
     adminGet: function (id) { return callHandler('admin-get', { cid: id }); },
     adminPeople: function (q) { return callHandler('admin-people', { q: q }); },
+    adminEditors: function () { return callHandler('admin-editors'); },
+    adminEditorAdd: function (key) { return callHandler('admin-editor-add', {}, { key: key }); },
+    adminEditorRemove: function (id) { return callHandler('admin-editor-remove', {}, { id: id }); },
     adminSave: function (data) { return callHandler('admin-save', {}, data); },
     adminStatus: function (ids, status, extra) {
       var b = { ids: ids };

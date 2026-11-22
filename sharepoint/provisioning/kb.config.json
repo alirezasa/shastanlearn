@@ -11,7 +11,7 @@
   "MediaLibrary": "DocLib",
 
   "AdminsMembers": ["SHASTAN\\KB-Admins"],
-  "HRMembers": ["SHASTAN\\KB-HR"],
+  "HRMembers": [],
   "ReadersMembers": ["c:0(.s|true"],
 
   "ExistingItemsStatus": "Published",

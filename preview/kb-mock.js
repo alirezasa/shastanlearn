@@ -347,6 +347,16 @@
       return delay(r);
     },
     adminGet: function (id) { var d = needManager(); if (d) return d; var it = find(id); return it ? delay(adminItem(it)) : fail(404, 'محتوا یافت نشد.'); },
+    adminEditors: function () {
+      db.editors = db.editors || [{ id: 11, key: 'i:0#.w|shastan\\a.rezaei', name: 'علی رضایی', type: 'user', email: '' }];
+      return delay({ group: 'KB-HR', items: db.editors });
+    },
+    adminEditorAdd: function (key) {
+      db.editors = db.editors || [];
+      if (!db.editors.some(function (e) { return e.key === key; })) db.editors.push({ id: 100 + db.editors.length, key: key, name: key.split('\\').pop(), type: 'user', email: '' });
+      persist(); return delay({ ok: true });
+    },
+    adminEditorRemove: function (id) { db.editors = (db.editors || []).filter(function (e) { return e.id !== id; }); persist(); return delay({ ok: true }); },
     adminPeople: function (q) {
       var d = needManager(); if (d) return d;
       var people = [

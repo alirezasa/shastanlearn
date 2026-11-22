@@ -41,9 +41,9 @@ namespace Microsoft.SharePoint
     }
     public class SPPrincipal { public int ID { get { return 0; } } public string Name { get { return ""; } } }
     public class SPUser : SPPrincipal { public string LoginName { get { return ""; } } public new string Name { get { return ""; } } public string Email { get { return ""; } } public bool IsDomainGroup { get { return false; } } }
-    public class SPGroup : SPPrincipal { }
-    public class SPUserCollection { public SPUser GetByID(int id) { return null; } }
-    public class SPGroupCollection { public SPGroup this[string name] { get { return null; } } }
+    public class SPGroup : SPPrincipal { public SPUserCollection Users { get { return null; } } public void AddUser(SPUser u) { } public void RemoveUser(SPUser u) { } }
+    public class SPUserCollection : IEnumerable { public SPUser GetByID(int id) { return null; } public IEnumerator GetEnumerator() { return null; } }
+    public class SPGroupCollection : IEnumerable { public SPGroup this[string name] { get { return null; } } public IEnumerator GetEnumerator() { return null; } }
     public enum SPRoleType { None, Guest, Reader, Contributor, WebDesigner, Administrator, Editor }
     public class SPRoleDefinition { }
     public class SPRoleDefinitionCollection { public SPRoleDefinition GetByType(SPRoleType t) { return null; } }
