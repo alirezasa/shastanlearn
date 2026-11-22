@@ -255,7 +255,7 @@
     return PALETTE[h % PALETTE.length];
   }
   var STATUS = { Published: 'منتشرشده', Draft: 'پیش‌نویس', Archived: 'بایگانی', Scheduled: 'زمان‌بندی‌شده' };
-  var VISIBILITY = { Public: 'عمومی', Private: 'ویژه‌ی کارکنان' };
+  var VISIBILITY = { Public: 'عمومی', Private: 'اختصاصی' };
   var ROLES = { anonymous: 'مهمان', reader: 'کاربر سازمانی', hr: 'مدیر محتوا (منابع انسانی)', admin: 'مدیر سامانه' };
   function isMediaUrl(u, kind) {
     var ext = String(u || '').split('?')[0].split('#')[0].split('.').pop().toLowerCase();
@@ -464,6 +464,10 @@
     adminDashboard: function () { return callHandler('admin-dashboard'); },
     adminList: function (p) { return callHandler('admin-list', p); },
     adminGet: function (id) { return callHandler('admin-get', { cid: id }); },
+    adminPeople: function (q) { return callHandler('admin-people', { q: q }); },
+    adminEditors: function () { return callHandler('admin-editors'); },
+    adminEditorAdd: function (key) { return callHandler('admin-editor-add', {}, { key: key }); },
+    adminEditorRemove: function (id) { return callHandler('admin-editor-remove', {}, { id: id }); },
     adminSave: function (data) { return callHandler('admin-save', {}, data); },
     adminStatus: function (ids, status, extra) {
       var b = { ids: ids };

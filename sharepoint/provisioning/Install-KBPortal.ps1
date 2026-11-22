@@ -36,6 +36,7 @@ if (-not (Get-PSSnapin Microsoft.SharePoint.PowerShell -ErrorAction SilentlyCont
 function Write-Step([string]$m) { Write-Host "`n==> $m" -ForegroundColor Cyan }
 function Write-Ok([string]$m) { Write-Host "    [OK] $m" -ForegroundColor Green }
 function Write-Note([string]$m) { Write-Host "    [!] $m" -ForegroundColor Yellow }
+. (Join-Path $PSScriptRoot 'KBCommon.ps1')
 
 # ---------------------------------------------------------------- ورودی‌ها
 $config = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -131,18 +132,22 @@ if ($WhatIfOnly) { Write-Note 'حالت WhatIfOnly: تغییری اعمال نش
 
 # ---------------------------------------------------------------- ۱. Web Application
 Write-Step 'تنظیمات Web Application'
-$zone = [Microsoft.SharePoint.Administration.SPUrlZone]$config.Zone
-$iis = $webApp.IisSettings[$zone]
-if (-not $iis.AllowAnonymous) {
-  if ($config.EnableAnonymousOnWebApplication) {
-    $iis.AllowAnonymous = $true
-    $webApp.Update()
-    $webApp.ProvisionGlobally()
-    Write-Ok "دسترسی ناشناس روی Zone $($config.Zone) فعال شد (سایت‌های دیگر این Web Application تا وقتی خودشان فعال نکنند ناشناس نمی‌شوند)"
-  } else {
-    Write-Note "دسترسی ناشناس روی Zone $($config.Zone) خاموش است؛ کاربران عمومی بدون ورود صفحات را نمی‌بینند."
-  }
-} else { Write-Ok 'دسترسی ناشناس Zone فعال است' }
+$zone = Resolve-KBZone $webApp $config
+# Zone = Auto: همه‌ی Zoneهای این وب‌اپلیکیشن (نشانی داخلی و نشانی عمومی در AAM)؛ وگرنه فقط Zone تعیین‌شده
+$zones = if ([string]$config.Zone -and [string]$config.Zone -ne 'Auto') { @($zone) } else { @($webApp.IisSettings.Keys) }
+$changedZones = @()
+foreach ($z in $zones) {
+  $iis = $webApp.IisSettings[$z]
+  if (-not $iis) { continue }
+  if ($iis.AllowAnonymous) { Write-Ok "دسترسی ناشناس Zone $z فعال است"; continue }
+  if ($config.EnableAnonymousOnWebApplication) { $iis.AllowAnonymous = $true; $changedZones += $z }
+  else { Write-Note "دسترسی ناشناس روی Zone $z خاموش است؛ کاربران بدون ورود محتوای عمومی را نمی‌بینند." }
+}
+if ($changedZones) {
+  $webApp.Update()
+  $webApp.ProvisionGlobally()
+  Write-Ok "دسترسی ناشناس روی Zone $($changedZones -join ', ') فعال شد (سایت‌های دیگر این Web Application تا وقتی خودشان فعال نکنند ناشناس نمی‌شوند)"
+}
 if (-not $webApp.OutboundMailServiceInstance) {
   Write-Note 'Outgoing E-mail تنظیم نشده؛ ایمیل اطلاع‌رسانی نظرات ارسال نمی‌شود (Central Admin > System Settings > Configure outgoing e-mail settings).'
 }
@@ -186,6 +191,9 @@ function Ensure-Group([string]$name, [string]$description) {
     $owner = if ($web.AssociatedOwnerGroup) { $web.AssociatedOwnerGroup } else { $site.Owner }
     $web.SiteGroups.Add($name, $owner, $null, $description)
     $g = $web.SiteGroups[$name]
+  } elseif ($g.Description -ne $description) {
+    $g.Description = $description
+    $g.Update()
   }
   return $g
 }
@@ -217,8 +225,8 @@ function Grant($securable, $principal, $roleDef) {
 }
 
 $gAdmins = Ensure-Group 'KB-Admins' 'مدیران سامانه‌ی پایگاه دانش (دسترسی کامل)'
-$gHR = Ensure-Group 'KB-HR' 'منابع انسانی — مدیریت محتوا، رسانه و نظرات پایگاه دانش'
-$gReaders = Ensure-Group 'KB-Readers' 'همه‌ی کارکنان واردشده (مشاهده‌ی محتوای عمومی و خصوصی)'
+$gHR = Ensure-Group 'KB-HR' 'مدیران محتوا — اعضا مستقیماً در شیرپوینت اضافه می‌شوند (پنل ← مدیران محتوا) — مدیریت محتوا، رسانه و نظرات پایگاه دانش'
+$gReaders = Ensure-Group 'KB-Readers' 'مشاهده‌کنندگان عمومی — همه‌ی کاربران واردشده (مشاهده‌ی محتوای عمومی و خصوصی)'
 Add-Members $gAdmins $config.AdminsMembers
 Add-Members $gHR $config.HRMembers
 Add-Members $gReaders $config.ReadersMembers
@@ -475,6 +483,8 @@ if ($reg) {
   Set-Setting 'ADUpnSuffix' $reg.ADUpnSuffix $false
   Set-Setting 'ADGroup' $reg.ADGroup $false
 }
+if ($config.LegacyHosts) { Set-Setting 'LegacyHosts' (@($config.LegacyHosts) -join ', ') $false }
+if ($config.AutoSignIn) { Set-Setting 'AutoSignIn' ([string]$config.AutoSignIn) $false }
 Write-Ok 'KBSettings (نگاشت ستون‌ها: FieldMap)'
 
 $i = 0

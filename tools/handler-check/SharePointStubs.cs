@@ -33,13 +33,35 @@ namespace Microsoft.SharePoint
         public SPSite Site { get { return null; } }
         public bool DoesUserHavePermissions(SPBasePermissions p) { return false; }
         public SPFile GetFile(string url) { return null; }
+        public SPUserCollection SiteUsers { get { return null; } }
+        public SPGroupCollection SiteGroups { get { return null; } }
+        public SPUser EnsureUser(string login) { return null; }
+        public SPRoleDefinitionCollection RoleDefinitions { get { return null; } }
         public void Dispose() { }
     }
-    public class SPUser { public string LoginName { get { return ""; } } public string Name { get { return ""; } } public string Email { get { return ""; } } }
+    public class SPPrincipal { public int ID { get { return 0; } } public string Name { get { return ""; } } }
+    public class SPUser : SPPrincipal { public string LoginName { get { return ""; } } public new string Name { get { return ""; } } public string Email { get { return ""; } } public bool IsDomainGroup { get { return false; } } }
+    public class SPGroup : SPPrincipal { public SPUserCollection Users { get { return null; } } public void AddUser(SPUser u) { } public void RemoveUser(SPUser u) { } }
+    public class SPUserCollection : IEnumerable { public SPUser GetByID(int id) { return null; } public IEnumerator GetEnumerator() { return null; } }
+    public class SPGroupCollection : IEnumerable { public SPGroup this[string name] { get { return null; } } public IEnumerator GetEnumerator() { return null; } }
+    public enum SPRoleType { None, Guest, Reader, Contributor, WebDesigner, Administrator, Editor }
+    public class SPRoleDefinition { }
+    public class SPRoleDefinitionCollection { public SPRoleDefinition GetByType(SPRoleType t) { return null; } }
+    public class SPRoleDefinitionBindingCollection { public void Add(SPRoleDefinition d) { } }
+    public class SPRoleAssignment { public SPRoleAssignment(SPPrincipal p) { } public SPPrincipal Member { get { return null; } } public SPRoleDefinitionBindingCollection RoleDefinitionBindings { get { return null; } } }
+    public class SPRoleAssignmentCollection : IEnumerable { public int Count { get { return 0; } } public SPRoleAssignment this[int i] { get { return null; } } public void Remove(int i) { } public void Add(SPRoleAssignment a) { } public IEnumerator GetEnumerator() { return null; } }
+    public class SPSecurableObject
+    {
+        public bool HasUniqueRoleAssignments { get { return false; } }
+        public SPRoleAssignmentCollection RoleAssignments { get { return null; } }
+        public void BreakRoleInheritance(bool copy) { }
+        public void ResetRoleInheritance() { }
+        public bool DoesUserHavePermissions(SPUser u, SPBasePermissions p) { return false; }
+    }
     public class SPRegionalSettings { public SPTimeZone TimeZone { get { return null; } } }
     public class SPTimeZone { public DateTime LocalTimeToUTC(DateTime d) { return d; } public DateTime UTCToLocalTime(DateTime d) { return d; } }
     public class SPListCollection { public SPList TryGetList(string t) { return null; } public SPList this[string t] { get { return null; } } public SPList this[Guid g] { get { return null; } } }
-    public class SPList
+    public class SPList : SPSecurableObject
     {
         public string Title { get { return ""; } }
         public SPFieldCollection Fields { get { return null; } }
@@ -56,7 +78,7 @@ namespace Microsoft.SharePoint
     public class SPFieldMultiChoice : SPField { public StringCollection Choices { get { return null; } } }
     public class SPFieldChoice : SPFieldMultiChoice { }
     public class SPFieldLookup : SPField { public string LookupList { get { return ""; } } public string LookupField { get { return ""; } } }
-    public class SPListItem
+    public class SPListItem : SPSecurableObject
     {
         public int ID { get { return 0; } }
         public object this[string n] { get { return null; } set { } }
@@ -95,7 +117,9 @@ namespace Microsoft.SharePoint
 }
 namespace Microsoft.SharePoint.Administration
 {
-    public class SPWebApplication { public int MaximumFileSize { get { return 0; } } }
+    public class SPWebApplication { public int MaximumFileSize { get { return 0; } } public SPAlternateUrlCollection AlternateUrls { get { return null; } } }
+    public class SPAlternateUrl { public System.Uri Uri { get { return null; } } public string IncomingUrl { get { return null; } } public Microsoft.SharePoint.SPUrlZone UrlZone { get { return 0; } } }
+    public class SPAlternateUrlCollection : System.Collections.Generic.List<SPAlternateUrl> { }
     public enum TraceSeverity { None, Unexpected, Monitorable, High, Medium, Verbose }
     public enum EventSeverity { None, Error, Warning, Information }
     public class SPDiagnosticsCategory { public SPDiagnosticsCategory(string n, TraceSeverity t, EventSeverity e) { } }
@@ -107,6 +131,10 @@ namespace Microsoft.SharePoint.Utilities
     {
         public static bool IsEmailServerSet(Microsoft.SharePoint.SPWeb web) { return false; }
         public static bool SendEmail(Microsoft.SharePoint.SPWeb web, bool appendHtmlTag, bool htmlEncode, string to, string subject, string htmlBody) { return false; }
+        public static IList<SPPrincipalInfo> SearchPrincipals(Microsoft.SharePoint.SPWeb web, string input, SPPrincipalType scopes, SPPrincipalSource sources, Microsoft.SharePoint.SPUserCollection usersContainer, int maxCount, out bool reachMaxCount) { reachMaxCount = false; return null; }
     }
+    [Flags] public enum SPPrincipalType { None = 0, User = 1, DistributionList = 2, SecurityGroup = 4, SharePointGroup = 8, All = 15 }
+    [Flags] public enum SPPrincipalSource { None = 0, UserInfoList = 1, Windows = 2, MembershipProvider = 4, RoleProvider = 8, All = 15 }
+    public class SPPrincipalInfo { public string LoginName { get { return ""; } } public string DisplayName { get { return ""; } } public string Email { get { return ""; } } public string JobTitle { get { return ""; } } public string Department { get { return ""; } } public SPPrincipalType PrincipalType { get { return 0; } } }
     public static class SPEncode { public static string HtmlEncode(string s) { return s; } }
 }

@@ -127,7 +127,7 @@
           return html`<a class="kb-slide" href="${KB.contentUrl(it.id)}">
             ${it.thumb ? html`<img class="kb-img" src="${it.thumb}" alt="" data-type="${it.type || ''}">` : ui.placeholder(it)}
             <div class="kb-slide-cap">
-              <div class="kb-row kb-wrap">${ui.typeBadge(it.type)}${it.visibility === 'Private' ? html`<span class="kb-badge kb-badge-dark">${icon('lock')}ویژه‌ی کارکنان</span>` : ''}${it.category ? html`<span class="kb-badge kb-badge-dark">${it.category}</span>` : ''}</div>
+              <div class="kb-row kb-wrap">${ui.typeBadge(it.type)}${it.visibility === 'Private' ? html`<span class="kb-badge kb-badge-dark">${icon('lock')}اختصاصی</span>` : ''}${it.category ? html`<span class="kb-badge kb-badge-dark">${it.category}</span>` : ''}</div>
               <h2>${it.title}</h2>${it.summary ? html`<p class="kb-clamp-2">${it.summary}</p>` : ''}
               <div class="kb-meta"><span>${icon('calendar')}${U.fmtDate(it.publishAt || it.created)}</span><span>${icon('eye')}${U.compact(it.views)}</span>${it.author && it.author.name ? html`<span>${icon('user')}${it.author.name}</span>` : ''}</div>
             </div></a>`;
@@ -226,7 +226,7 @@
         <div class="kb-card"><h3 class="kb-box-title">نوع محتوا</h3>${list(types, 'type', st.type, function (v) { return U.typeMeta(v); })}</div>
         ${cats.length ? html`<div class="kb-card"><h3 class="kb-box-title">دسته‌بندی</h3>${list(cats, 'cat', st.cat, function (v) { var c = KB.cat(v); return { icon: c.icon, label: c.title }; })}</div>` : ''}
         ${KB.can.login() ? html`<div class="kb-card"><h3 class="kb-box-title">سطح دسترسی</h3><div class="kb-filter-list">
-          ${[['', 'همه', 'layers'], ['Public', 'عمومی', 'globe'], ['Private', 'ویژه‌ی کارکنان', 'lock']].map(function (o) { return html`<button type="button" class="${st.vis === o[0] ? 'is-active' : ''}" data-f="vis" data-v="${o[0]}"><span class="kb-row">${icon(o[2], 'kb-ico-sm')}${o[1]}</span></button>`; })}
+          ${[['', 'همه', 'layers'], ['Public', 'عمومی', 'globe'], ['Private', 'اختصاصی', 'lock']].map(function (o) { return html`<button type="button" class="${st.vis === o[0] ? 'is-active' : ''}" data-f="vis" data-v="${o[0]}"><span class="kb-row">${icon(o[2], 'kb-ico-sm')}${o[1]}</span></button>`; })}
           <button type="button" class="${st.saved ? 'is-active' : ''}" data-f="saved" data-v="${st.saved ? '' : '1'}"><span class="kb-row">${icon('bookmark', 'kb-ico-sm')}فقط ذخیره‌شده‌ها</span></button>
         </div></div>` : ''}
         ${(KB.state.tags || []).length ? html`<div class="kb-card"><h3 class="kb-box-title">برچسب‌های پرکاربرد</h3><div class="kb-row kb-wrap">${KB.state.tags.slice(0, 24).map(function (t) {
@@ -370,10 +370,15 @@
     KB.api.get(id, { preview: preview }).then(function (item) { draw(el, item, preview); }).catch(function (e) {
       if (e.status === 401 || e.code === 'login') {
         U.mount(el, html`<div class="kb-container" style="padding-top:28px"><div class="kb-article kb-lock-screen">
-          <div class="kb-empty-icon">${icon('lock')}</div><h2 style="font-size:20px">این محتوا ویژه‌ی کارکنان است</h2>
-          <p class="kb-muted" style="margin:8px auto 20px;max-width:460px">برای مطالعه‌ی این مطلب با نام کاربری و رمز عبور شبکه‌ی سازمان (ad.shastangroup.ir) وارد شوید.</p>
-          <a class="kb-btn kb-btn-brand kb-btn-lg" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود</a>
+          <div class="kb-empty-icon">${icon('lock')}</div><h2 style="font-size:20px">این محتوا اختصاصی است</h2>
+          <p class="kb-muted" style="margin:8px auto 20px;max-width:460px">اگر دسترسی این مطلب به شما داده شده است، با حساب سازمانی (ویندوز) وارد شوید.</p>
+          <a class="kb-btn kb-btn-brand kb-btn-lg" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود با حساب سازمانی</a>
           <p style="margin-top:14px"><a class="kb-more" href="${KB.url('browse')}">مشاهده‌ی محتوای عمومی</a></p></div></div>`);
+      } else if (e.status === 403 || e.code === 'private') {
+        U.mount(el, html`<div class="kb-container" style="padding-top:28px"><div class="kb-article kb-lock-screen">
+          <div class="kb-empty-icon">${icon('shield')}</div><h2 style="font-size:20px">دسترسی به این محتوا به شما داده نشده است</h2>
+          <p class="kb-muted" style="margin:8px auto 20px;max-width:460px">${e.message || 'این محتوا اختصاصی است.'}</p>
+          <a class="kb-btn kb-btn-brand" href="${KB.url('browse')}">${icon('library')}مشاهده‌ی محتوای در دسترس</a></div></div>`);
       } else if (e.status === 404) {
         U.mount(el, html`<div class="kb-container" style="padding-top:28px">${ui.empty('search', 'محتوا یافت نشد', 'ممکن است این مطلب حذف یا از حالت انتشار خارج شده باشد.', html`<a class="kb-btn kb-btn-brand" href="${KB.url('browse')}">${icon('library')}مرور همه‌ی محتوا</a>`)}</div>`);
       } else U.mount(el, html`<div class="kb-container" style="padding-top:28px">${ui.errorBox(e)}</div>`);
@@ -396,7 +401,7 @@
             <article class="kb-article">
               <header class="kb-article-head">
                 <nav class="kb-breadcrumb" aria-label="مسیر"><a href="${KB.url('home')}">خانه</a>${icon('chevron-left')}<a href="${KB.url('browse', { type: item.type })}">${U.typeMeta(item.type).label}</a>${cat ? html`${icon('chevron-left')}<a href="${KB.url('browse', { cat: cat.title })}">${cat.title}</a>` : ''}</nav>
-                <div class="kb-row kb-wrap">${ui.typeBadge(item.type)}${item.visibility === 'Private' ? html`<span class="kb-badge kb-badge-private">${icon('lock')}ویژه‌ی کارکنان</span>` : html`<span class="kb-badge kb-badge-brand">${icon('globe')}عمومی</span>`}${item.featured ? html`<span class="kb-badge kb-badge-amber">${icon('star')}ویژه</span>` : ''}</div>
+                <div class="kb-row kb-wrap">${ui.typeBadge(item.type)}${item.visibility === 'Private' ? html`<span class="kb-badge kb-badge-private">${icon('lock')}اختصاصی</span>` : html`<span class="kb-badge kb-badge-brand">${icon('globe')}عمومی</span>`}${item.featured ? html`<span class="kb-badge kb-badge-amber">${icon('star')}ویژه</span>` : ''}</div>
                 <h1 class="kb-article-title">${item.title}</h1>
                 ${item.summary ? html`<p class="kb-article-lead">${item.summary}</p>` : ''}
                 <div class="kb-article-meta">

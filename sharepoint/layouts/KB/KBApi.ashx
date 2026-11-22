@@ -27,6 +27,7 @@ using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -51,9 +52,9 @@ namespace Shastan.KB
         private const int IndexSeconds = 60;
         private const int ConfigSeconds = 120;
 
-        private static readonly string[] PublicSettingKeys = { "SiteTitle", "SiteSubtitle", "HeroTitle", "HeroText", "FooterText", "Copyright", "CommentsEnabled", "CommentModeration", "RegistrationEnabled" };
+        private static readonly string[] PublicSettingKeys = { "SiteTitle", "SiteSubtitle", "HeroTitle", "HeroText", "FooterText", "Copyright", "CommentsEnabled", "CommentModeration", "RegistrationEnabled", "AutoSignIn" };
         private static readonly string[] EditableSettingKeys = { "SiteTitle", "SiteSubtitle", "HeroTitle", "HeroText", "FooterText", "Copyright", "CommentsEnabled", "CommentModeration", "NotifyEmails", "DefaultVisibility",
-            "RegistrationEnabled", "ADMode", "ADDomain", "ADContainer", "ADGroup", "ADUpnSuffix" };
+            "RegistrationEnabled", "ADMode", "ADDomain", "ADContainer", "ADGroup", "ADUpnSuffix", "LegacyHosts", "AutoSignIn" };
         private static readonly string[] LogicalFields = { "Title", "Summary", "Body", "ThumbnailUrl", "ContentType", "Category", "Views", "ReadingMinutes", "IsFeatured", "AuthorName", "AuthorBio", "AuthorImageUrl", "PublishAt", "Visibility", "Status", "Tags", "MediaUrl", "LikesCount", "CommentsCount", "AllowComments" };
         private static readonly string[] DefaultTypes = { "مقاله", "ویدیو", "پادکست", "راهنما و آموزش", "گزارش", "گزارش تصویری", "سند و فایل", "خبر", "اینفوگرافیک", "پرسش و پاسخ" };
         private static readonly object Sync = new object();
@@ -95,6 +96,8 @@ namespace Shastan.KB
             public string MediaUrl;
             public string MediaTitle;
             public long MaxUploadMb;
+            /// <summary>نام‌های میزبان این Web Application (AAM) و نشانی‌های قدیمی (تنظیم LegacyHosts)؛ نشانی مطلق روی این‌ها نسبی می‌شود.</summary>
+            public HashSet<string> LocalHosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
 
         private class Entry
@@ -191,6 +194,7 @@ namespace Shastan.KB
                     case "admin-dashboard": return AdminDashboard();
                     case "admin-list": return AdminList();
                     case "admin-get": return AdminGet(QId());
+                    case "admin-people": return AdminPeople();
                     case "admin-authors": return AdminAuthors();
                     case "admin-comments": return AdminComments();
                     case "admin-categories": return AdminCategories();
@@ -206,6 +210,9 @@ namespace Shastan.KB
                     case "admin-settings": RequireAdmin(); return AdminSettings();
                     case "admin-settings-save": RequirePost(isPost); RequireAdmin(); return AdminSettingsSave();
                     case "admin-audit": RequireAdmin(); return AdminAudit();
+                    case "admin-editors": RequireAdmin(); return AdminEditors();
+                    case "admin-editor-add": RequirePost(isPost); RequireAdmin(); return AdminEditorAdd();
+                    case "admin-editor-remove": RequirePost(isPost); RequireAdmin(); return AdminEditorRemove();
                     case "admin-registrations": RequireAdmin(); return AdminRegistrations();
                     case "admin-registration-action": RequirePost(isPost); RequireAdmin(); return AdminRegistrationAction();
                     case "admin-registration-password": RequirePost(isPost); RequireAdmin(); return AdminRegistrationPassword();
@@ -287,6 +294,20 @@ namespace Shastan.KB
                 SPList list = web.Lists.TryGetList(target.ContentList);
                 if (list == null) throw new ApiException(500, "لیست محتوا («" + target.ContentList + "») یافت نشد.");
                 target.ContentListUrl = list.RootFolder.ServerRelativeUrl.TrimEnd('/');
+                try
+                {
+                    foreach (SPAlternateUrl aam in web.Site.WebApplication.AlternateUrls)
+                        if (aam.Uri != null) target.LocalHosts.Add(aam.Uri.Host);
+                }
+                catch { }
+                foreach (string h in Setting(target, "LegacyHosts", "").Split(new[] { ',', ';', ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string host = h.Trim();
+                    Uri hu;
+                    if (Uri.TryCreate(host, UriKind.Absolute, out hu)) host = hu.Host;
+                    host = host.Split('/')[0].Split(':')[0];
+                    if (host.Length > 0) target.LocalHosts.Add(host);
+                }
 
                 Dictionary<string, string> map = new Dictionary<string, string>();
                 string json = Setting(target, "FieldMap", "");
@@ -334,8 +355,11 @@ namespace Shastan.KB
             return c.Settings.TryGetValue(key, out v) && !string.IsNullOrEmpty(v) ? v : fallback;
         }
 
+        private static int privGen;
+
         private void Flush(bool config)
         {
+            System.Threading.Interlocked.Increment(ref privGen);
             HttpRuntime.Cache.Remove("kb.idx." + webId);
             HttpRuntime.Cache.Remove("kb.cats." + webId);
             if (config) HttpRuntime.Cache.Remove("kb.cfg." + webId);
@@ -560,7 +584,9 @@ namespace Shastan.KB
         }
 
         private static bool IsLive(Entry e) { return e.Status == "Published" && (!e.PublishAt.HasValue || e.PublishAt.Value <= DateTime.UtcNow); }
-        private bool CanView(Entry e) { return IsLive(e) && (e.IsPublic || user != null); }
+        /// <summary>عمومی: همه (حتی بدون ورود). اختصاصی: مدیران محتوا + افراد/گروه‌هایی که روی همان آیتم مجوز مشاهده دارند.</summary>
+        private bool CanView(Entry e) { return IsLive(e) && (e.IsPublic || CanSeePrivate(e.Id)); }
+        private bool CanSeePrivate(int id) { return user != null && (IsManager || PrivateAllowed().Contains(id)); }
         private List<Entry> Visible() { return PublishedIndex().Where(CanView).ToList(); }
 
         // ------------------------------------------------------------------ نشانی‌ها
@@ -573,10 +599,22 @@ namespace Shastan.KB
         {
             if (string.IsNullOrEmpty(url)) return "";
             Uri u;
-            if (Uri.TryCreate(url, UriKind.Absolute, out u) && (u.Scheme == "http" || u.Scheme == "https") &&
-                string.Equals(u.Host, req.Url.Host, StringComparison.OrdinalIgnoreCase))
+            if (Uri.TryCreate(url, UriKind.Absolute, out u) && (u.Scheme == "http" || u.Scheme == "https") && IsLocalHost(u.Host))
                 return u.PathAndQuery;
             return url;
+        }
+
+        private bool IsLocalHost(string host)
+        {
+            return string.Equals(host, req.Url.Host, StringComparison.OrdinalIgnoreCase) || (cfg != null && cfg.LocalHosts.Contains(host));
+        }
+
+        /// <summary>src/href مطلق روی میزبان‌های همین سامانه (نشانی فعلی، AAM و LegacyHosts) نسبی می‌شود تا بعد از تغییر دامنه نشکند.</summary>
+        private string LocalizeLinks(string html)
+        {
+            if (string.IsNullOrEmpty(html) || html.IndexOf("://", StringComparison.Ordinal) < 0) return html ?? "";
+            return Regex.Replace(html, "(\\b(?:src|href)\\s*=\\s*[\"']?)https?://([^/\"'\\s:>]+)(?::\\d+)?(?=/)", m =>
+                IsLocalHost(m.Groups[2].Value) ? m.Groups[1].Value : m.Value, RegexOptions.IgnoreCase);
         }
 
         /// <summary>پیوست‌های لیست محتوا مستقیماً قابل دریافت نیستند؛ از طریق همین هندلر (با بررسی دسترسی) سرو می‌شوند.</summary>
@@ -599,6 +637,7 @@ namespace Shastan.KB
         private string RewriteBody(string html)
         {
             if (string.IsNullOrEmpty(html)) return "";
+            html = LocalizeLinks(html);
             string pattern = "(?:https?://[^/\"'\\s]+)?" + Regex.Escape(cfg.ContentListUrl) + "/Attachments/(\\d+)/([^\"'\\s<>?#]+)";
             string handler = HandlerUrl;
             return Regex.Replace(html, pattern, m => handler + "?action=file&amp;cid=" + m.Groups[1].Value + "&amp;name=" +
@@ -735,6 +774,7 @@ namespace Shastan.KB
             return new Dictionary<string, object>
             {
                 { "user", u },
+                { "autoSignIn", user == null && AutoSignIn() },
                 { "settings", settings },
                 { "categories", catOut },
                 { "types", Count(vis.Where(e => e.Type.Length > 0).Select(e => e.Type)).OrderByDescending(p => p.Value).Select(p => new Dictionary<string, object> { { "value", p.Key }, { "count", p.Value } }).ToList() },
@@ -917,7 +957,8 @@ namespace Shastan.KB
             Entry e = PublishedIndex().FirstOrDefault(x => x.Id == id);
             if (e != null && IsLive(e))
             {
-                if (!e.IsPublic && user == null) throw new ApiException(401, "این محتوا ویژه‌ی کارکنان است؛ برای مشاهده وارد شوید.", "login");
+                if (!e.IsPublic && user == null) throw new ApiException(401, "این محتوا اختصاصی است؛ برای مشاهده با حساب سازمانی وارد شوید.", "login");
+                if (!e.IsPublic && !CanSeePrivate(e.Id)) throw new ApiException(403, "این محتوا اختصاصی است و دسترسی مشاهده‌ی آن به شما داده نشده است. برای دریافت دسترسی با مدیر سامانه تماس بگیرید.", "private");
                 return e;
             }
             if (allowPreview && IsManager) return e ?? LoadEntry(id, false);
@@ -994,6 +1035,7 @@ namespace Shastan.KB
             if (!allowed)
             {
                 if (e != null && IsLive(e) && user == null) throw new ApiException(401, "برای دریافت این فایل وارد شوید.", "login");
+                if (e != null && IsLive(e)) throw new ApiException(403, "دسترسی دریافت این فایل به شما داده نشده است.", "private");
                 throw new ApiException(404, "فایل یافت نشد.");
             }
             HttpResponse res = ctx.Response;
@@ -1436,7 +1478,251 @@ namespace Shastan.KB
             r["attachments"] = e.HasAttachments ? AttachmentsOf(e.Id, true) : new List<Dictionary<string, object>>();
             r["createdBy"] = e.CreatedBy;
             r["editor"] = e.Editor;
+            r["audience"] = AudienceOf(id);
             return r;
+        }
+
+        // ------------------------------------------------------------------ مخاطبان محتوای اختصاصی (مجوز سطح آیتم)
+        private HashSet<int> privAllowed;
+
+        /// <summary>شناسه‌ی محتواهای اختصاصی که کاربر جاری روی آن‌ها مجوز مشاهده دارد (کاربر یا گروه AD / شیرپوینت؛ کش ۲ دقیقه)</summary>
+        private HashSet<int> PrivateAllowed()
+        {
+            if (privAllowed != null) return privAllowed;
+            HashSet<int> ids = new HashSet<int>();
+            if (user == null) return privAllowed = ids;
+            string key = "kb.priv." + webId + "." + privGen + "." + userKey;
+            HashSet<int> cached = HttpRuntime.Cache[key] as HashSet<int>;
+            if (cached != null) return privAllowed = cached;
+            List<int> candidates = PublishedIndex().Where(e => !e.IsPublic && IsLive(e)).Select(e => e.Id).ToList();
+            if (candidates.Count > 0)
+            {
+                int uid = user.ID;
+                Elevated(delegate (SPWeb web)
+                {
+                    SPUser u;
+                    try { u = web.SiteUsers.GetByID(uid); } catch { return; }
+                    SPList list = web.Lists[cfg.ContentList];
+                    foreach (int id in candidates)
+                    {
+                        try
+                        {
+                            SPListItem it = list.GetItemById(id);
+                            if (it.HasUniqueRoleAssignments && it.DoesUserHavePermissions(u, SPBasePermissions.ViewListItems)) ids.Add(id);
+                        }
+                        catch { }
+                    }
+                });
+            }
+            HttpRuntime.Cache.Insert(key, ids, null, DateTime.UtcNow.AddMinutes(2), System.Web.Caching.Cache.NoSlidingExpiration);
+            return privAllowed = ids;
+        }
+
+        private static Dictionary<string, object> PrincipalJson(SPPrincipal p)
+        {
+            SPUser u = p as SPUser;
+            if (u != null)
+                return new Dictionary<string, object> { { "key", u.LoginName }, { "name", string.IsNullOrEmpty(u.Name) ? u.LoginName : u.Name }, { "type", u.IsDomainGroup ? "group" : "user" }, { "email", u.Email ?? "" } };
+            return new Dictionary<string, object> { { "key", p.Name }, { "name", p.Name }, { "type", "spgroup" }, { "email", "" } };
+        }
+
+        /// <summary>افراد و گروه‌هایی که علاوه بر مجوزهای لیست، روی این آیتم مجوز دارند</summary>
+        private List<Dictionary<string, object>> AudienceOf(int id)
+        {
+            List<Dictionary<string, object>> r = new List<Dictionary<string, object>>();
+            Elevated(delegate (SPWeb web)
+            {
+                SPList list = web.Lists[cfg.ContentList];
+                SPListItem it;
+                try { it = list.GetItemById(id); } catch (ArgumentException) { return; }
+                if (!it.HasUniqueRoleAssignments) return;
+                HashSet<int> inherited = new HashSet<int>();
+                foreach (SPRoleAssignment ra in list.RoleAssignments) inherited.Add(ra.Member.ID);
+                foreach (SPRoleAssignment ra in it.RoleAssignments)
+                    if (!inherited.Contains(ra.Member.ID)) r.Add(PrincipalJson(ra.Member));
+            });
+            return r.OrderBy(a => Convert.ToString(a["type"]) == "user" ? 1 : 0).ThenBy(a => Convert.ToString(a["name"])).ToList();
+        }
+
+        private List<string[]> BAudience()
+        {
+            List<string[]> r = new List<string[]>();
+            object raw;
+            if (!body.TryGetValue("audience", out raw) || raw == null) return r;
+            IEnumerable list = raw as IEnumerable;
+            if (list == null || raw is string) return r;
+            foreach (object o in list)
+            {
+                Dictionary<string, object> d = o as Dictionary<string, object>;
+                if (d == null) continue;
+                object k, t;
+                string key = d.TryGetValue("key", out k) ? Convert.ToString(k).Trim() : "";
+                string type = d.TryGetValue("type", out t) ? Convert.ToString(t) : "user";
+                if (key.Length > 0 && key.Length <= 255) r.Add(new[] { key, type });
+                if (r.Count >= 200) break;
+            }
+            return r;
+        }
+
+        /// <summary>
+        /// عمومی: ارث‌بری مجوز از لیست برمی‌گردد. اختصاصی: ارث‌بری قطع می‌شود (مدیران محتوا حفظ می‌شوند) و فقط به افراد/گروه‌های
+        /// انتخاب‌شده مجوز «Read» روی همین آیتم داده می‌شود. خروجی: نام مخاطبان (برای گزارش فعالیت).
+        /// </summary>
+        private string ApplyAudience(int id, bool isPublic, List<string[]> principals)
+        {
+            List<string> names = new List<string>();
+            List<string> failed = new List<string>();
+            Elevated(delegate (SPWeb web)
+            {
+                SPList list = web.Lists[cfg.ContentList];
+                SPListItem it = list.GetItemById(id);
+                if (isPublic)
+                {
+                    if (it.HasUniqueRoleAssignments) it.ResetRoleInheritance();
+                    return;
+                }
+                Dictionary<int, SPPrincipal> want = new Dictionary<int, SPPrincipal>();
+                foreach (string[] p in principals ?? new List<string[]>())
+                {
+                    try
+                    {
+                        SPPrincipal principal;
+                        if (p[1] == "spgroup") principal = web.SiteGroups[p[0]];
+                        else principal = web.EnsureUser(p[0]);
+                        if (principal != null && !want.ContainsKey(principal.ID)) want[principal.ID] = principal;
+                    }
+                    catch { failed.Add(p[0]); }
+                }
+                if (failed.Count > 0) return;
+                if (!it.HasUniqueRoleAssignments)
+                {
+                    it.BreakRoleInheritance(true);
+                    it = list.GetItemById(id);
+                }
+                HashSet<int> inherited = new HashSet<int>();
+                foreach (SPRoleAssignment ra in list.RoleAssignments) inherited.Add(ra.Member.ID);
+                HashSet<int> present = new HashSet<int>();
+                for (int i = it.RoleAssignments.Count - 1; i >= 0; i--)
+                {
+                    SPPrincipal m = it.RoleAssignments[i].Member;
+                    if (inherited.Contains(m.ID)) continue;
+                    if (want.ContainsKey(m.ID)) present.Add(m.ID);
+                    else it.RoleAssignments.Remove(i);
+                }
+                SPRoleDefinition reader = web.RoleDefinitions.GetByType(SPRoleType.Reader);
+                foreach (KeyValuePair<int, SPPrincipal> p in want)
+                {
+                    names.Add(p.Value is SPUser ? ((SPUser)p.Value).Name : p.Value.Name);
+                    if (present.Contains(p.Key) || inherited.Contains(p.Key)) continue;
+                    SPRoleAssignment ra = new SPRoleAssignment(p.Value);
+                    ra.RoleDefinitionBindings.Add(reader);
+                    it.RoleAssignments.Add(ra);
+                }
+            });
+            if (failed.Count > 0) throw new ApiException(400, "این افراد یا گروه‌ها پیدا نشدند و مجوز تغییر نکرد: " + string.Join("، ", failed.ToArray()));
+            return string.Join("، ", names.ToArray());
+        }
+
+        /// <summary>جست‌وجوی کاربر، گروه AD و گروه شیرپوینت برای انتخاب مخاطبان محتوای اختصاصی</summary>
+        private object AdminPeople()
+        {
+            string q = Q("q").Trim();
+            List<Dictionary<string, object>> items = new List<Dictionary<string, object>>();
+            if (q.Length < 2) return new Dictionary<string, object> { { "items", items } };
+            SPWeb web = SPContext.Current.Web;
+            bool reached;
+            IList<SPPrincipalInfo> found = SPUtility.SearchPrincipals(web, q,
+                SPPrincipalType.User | SPPrincipalType.SecurityGroup | SPPrincipalType.SharePointGroup, SPPrincipalSource.All, null, 25, out reached);
+            foreach (SPPrincipalInfo p in found)
+            {
+                bool sp = (p.PrincipalType & SPPrincipalType.SharePointGroup) == SPPrincipalType.SharePointGroup;
+                bool grp = (p.PrincipalType & SPPrincipalType.SecurityGroup) == SPPrincipalType.SecurityGroup;
+                items.Add(new Dictionary<string, object>
+                {
+                    { "key", sp ? p.DisplayName : p.LoginName }, { "name", string.IsNullOrEmpty(p.DisplayName) ? p.LoginName : p.DisplayName },
+                    { "type", sp ? "spgroup" : grp ? "group" : "user" }, { "email", p.Email ?? "" },
+                    { "detail", string.Join(" — ", new[] { p.JobTitle, p.Department, sp ? "" : p.LoginName }.Where(x => !string.IsNullOrEmpty(x)).ToArray()) }
+                });
+            }
+            return new Dictionary<string, object> { { "items", items } };
+        }
+
+        // ------------------------------------------------------------------ اعضای گروه مدیران محتوا (گروه شیرپوینت KB-HR)
+        private const string EditorsGroup = "KB-HR";
+
+        private static SPGroup FindGroup(SPWeb web, string name)
+        {
+            foreach (SPGroup g in web.SiteGroups) if (string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase)) return g;
+            throw new ApiException(500, "گروه «" + name + "» در سایت وجود ندارد؛ Install-KBPortal.ps1 را اجرا کنید.");
+        }
+
+        private object AdminEditors()
+        {
+            List<Dictionary<string, object>> items = new List<Dictionary<string, object>>();
+            Elevated(delegate (SPWeb web)
+            {
+                foreach (SPUser u in FindGroup(web, EditorsGroup).Users)
+                {
+                    Dictionary<string, object> j = PrincipalJson(u);
+                    j["id"] = u.ID;
+                    items.Add(j);
+                }
+            });
+            return new Dictionary<string, object> { { "group", EditorsGroup }, { "items", items.OrderBy(i => Convert.ToString(i["name"])).ToList() } };
+        }
+
+        private object AdminEditorAdd()
+        {
+            string key = BStr("key", 255);
+            if (key.Length == 0) throw new ApiException(400, "کاربر را انتخاب کنید.");
+            string name = "";
+            Elevated(delegate (SPWeb web)
+            {
+                SPUser u;
+                try { u = web.EnsureUser(key); } catch (Exception) { throw new ApiException(400, "کاربر «" + key + "» پیدا نشد."); }
+                FindGroup(web, EditorsGroup).AddUser(u);
+                name = string.IsNullOrEmpty(u.Name) ? u.LoginName : u.Name;
+            });
+            Audit("EditorAdd", 0, EditorsGroup, name);
+            return Ok();
+        }
+
+        private object AdminEditorRemove()
+        {
+            int id = BInt("id");
+            string name = "";
+            Elevated(delegate (SPWeb web)
+            {
+                SPUser u;
+                try { u = web.SiteUsers.GetByID(id); } catch (Exception) { throw new ApiException(404, "کاربر پیدا نشد."); }
+                FindGroup(web, EditorsGroup).RemoveUser(u);
+                name = string.IsNullOrEmpty(u.Name) ? u.LoginName : u.Name;
+            });
+            Audit("EditorRemove", 0, EditorsGroup, name);
+            return Ok();
+        }
+
+        // ------------------------------------------------------------------ ورود خودکار ویندوزی
+        /// <summary>AutoSignIn: Internal (پیش‌فرض؛ فقط از شبکه‌ی داخلی) | Always | Off</summary>
+        private bool AutoSignIn()
+        {
+            string mode = Setting(cfg, "AutoSignIn", "Internal");
+            if (string.Equals(mode, "Off", StringComparison.OrdinalIgnoreCase)) return false;
+            if (string.Equals(mode, "Always", StringComparison.OrdinalIgnoreCase)) return true;
+            return IsInternalClient();
+        }
+
+        private bool IsInternalClient()
+        {
+            string ip = (req.Headers["X-Forwarded-For"] ?? "").Split(',')[0].Trim();
+            if (ip.Length == 0) ip = req.UserHostAddress ?? "";
+            IPAddress a;
+            if (!IPAddress.TryParse(ip, out a)) return false;
+            if (IPAddress.IsLoopback(a)) return true;
+            if (a.IsIPv4MappedToIPv6) a = a.MapToIPv4();
+            byte[] b = a.GetAddressBytes();
+            if (b.Length == 4) return b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) || (b[0] == 192 && b[1] == 168) || (b[0] == 169 && b[1] == 254);
+            return (b[0] & 0xFE) == 0xFC || (b[0] == 0xFE && (b[1] & 0xC0) == 0x80);
         }
 
         /// <summary>مقدار ذخیره‌شده (نه برآوردشده) یک ستون عددی</summary>
@@ -1595,6 +1881,12 @@ namespace Shastan.KB
                 SetValue(it, "CommentsCount", 0);
             }
             it.Update();
+            bool isPublic = BStr("visibility", 20) == "Public";
+            if (isPublic || Has("audience"))
+            {
+                string names = ApplyAudience(it.ID, isPublic, BAudience());
+                if (!isPublic) Audit("Audience", it.ID, title, names.Length > 0 ? names : "فقط مدیران محتوا");
+            }
             Flush(false);
             Audit(isNew ? "Create" : status == "Published" && before != "Published" ? "Publish" : status != "Published" && before == "Published" ? "Unpublish" : "Update", it.ID, title, "");
             return new Dictionary<string, object> { { "ok", true }, { "item", AdminGet(it.ID) } };
@@ -1619,6 +1911,7 @@ namespace Shastan.KB
                 if (Has("visibility")) { SetValue(it, "Visibility", BStr("visibility", 20) == "Public" ? "Public" : "Private"); Audit("Visibility", id, title, BStr("visibility", 20)); }
                 if (Has("featured")) { SetValue(it, "IsFeatured", BBool("featured")); Audit("Featured", id, title, BBool("featured") ? "بله" : "خیر"); }
                 it.Update();
+                if (Has("visibility") && BStr("visibility", 20) == "Public") ApplyAudience(id, true, null);
             }
             Flush(false);
             return Ok();
@@ -1655,6 +1948,11 @@ namespace Shastan.KB
             SetValue(it, "LikesCount", 0);
             SetValue(it, "CommentsCount", 0);
             it.Update();
+            if (!NormPublic(Str(src, "Visibility")))
+            {
+                List<string[]> copy = AudienceOf(src.ID).Select(a => new[] { Convert.ToString(a["key"]), Convert.ToString(a["type"]) }).ToList();
+                if (copy.Count > 0) ApplyAudience(it.ID, false, copy);
+            }
             Audit("Duplicate", it.ID, Str(it, "Title"), "از #" + src.ID);
             return new Dictionary<string, object> { { "ok", true }, { "item", AdminGet(it.ID) } };
         }

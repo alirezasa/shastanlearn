@@ -27,11 +27,12 @@ $ErrorActionPreference = 'Stop'
 if (-not (Get-PSSnapin Microsoft.SharePoint.PowerShell -ErrorAction SilentlyContinue)) { Add-PSSnapin Microsoft.SharePoint.PowerShell }
 function Write-Ok([string]$m) { Write-Host "    [OK] $m" -ForegroundColor Green }
 function Write-Note([string]$m) { Write-Host "    [!] $m" -ForegroundColor Yellow }
+. (Join-Path $PSScriptRoot 'KBCommon.ps1')
 
 $config = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $web = Get-SPWeb $config.SiteUrl
 $wa = $web.Site.WebApplication
-$zone = [Microsoft.SharePoint.Administration.SPUrlZone]$config.Zone
+$zone = Resolve-KBZone $wa $config
 Write-Host "Web Application: $($wa.Url)   Zone: $zone"
 
 # ---------------------------------------------------------------- ۱. بررسی Providerها در web.config

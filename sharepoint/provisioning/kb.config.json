@@ -1,6 +1,8 @@
 {
-  "SiteUrl": "http://srv-shp-web",
-  "Zone": "Default",
+  "SiteUrl": "http://srv-shpfront:2028",
+  "PublicUrl": "https://learn.shastan.ir",
+  "WebApplicationName": "sharepoint - learn",
+  "Zone": "Auto",
   "EnableAnonymousOnWebApplication": true,
   "EnableLockdownMode": true,
   "SetWelcomePage": true,
@@ -8,8 +10,8 @@
   "ContentList": "KnowledgeContent",
   "MediaLibrary": "DocLib",
 
-  "AdminsMembers": ["AD.SHASTANGROUP.IR\\KB-Admins"],
-  "HRMembers": ["AD.SHASTANGROUP.IR\\KB-HR"],
+  "AdminsMembers": ["SHASTAN\\KB-Admins"],
+  "HRMembers": [],
   "ReadersMembers": ["c:0(.s|true"],
 
   "ExistingItemsStatus": "Published",
@@ -30,12 +32,16 @@
   "CommentModeration": "Post",
   "NotifyEmails": "ICT@SHASTAN.IR",
 
+  "AutoSignIn": "Internal",
+
   "Registration": {
-    "Enabled": true,
+    "Enabled": false,
     "ADMode": "Manual",
-    "ADDomain": "ad.shastangroup.ir",
-    "ADContainer": "OU=KB Users,DC=ad,DC=shastangroup,DC=ir",
-    "ADUpnSuffix": "ad.shastangroup.ir",
+    "ADDomain": "shastan.local",
+    "ADContainer": "OU=KB Users,DC=shastan,DC=local",
+    "ADUpnSuffix": "shastan.local",
     "ADGroup": ""
-  }
+  },
+
+  "LegacyHosts": ["srv-shp-web", "learn.shastangroup.ir", "testlearn.shastangroup.ir"]
 }

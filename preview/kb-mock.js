@@ -112,7 +112,7 @@
         SiteTitle: 'پایگاه دانش شستان', SiteSubtitle: 'شرکت سرمایه‌گذاری تجاری شستان', HeroTitle: 'هر آنچه برای رشد و یادگیری لازم دارید',
         HeroText: 'مقالات، ویدیوها، پادکست‌ها و راهنماهای سازمانی شستان را جستجو کنید، بیاموزید و تجربه‌های خود را به اشتراک بگذارید.',
         FooterText: '', Copyright: 'شرکت سرمایه‌گذاری تجاری شستان', CommentsEnabled: 'true', CommentModeration: 'Post', NotifyEmails: 'hr@shastan.ir', DefaultVisibility: 'Public',
-        RegistrationEnabled: 'true', ADMode: 'Manual', ADDomain: 'ad.shastangroup.ir', ADContainer: 'OU=KB Users,OU=Shastan Portal,DC=ad,DC=shastangroup,DC=ir', ADUpnSuffix: '', ADGroup: 'KB-Members'
+        RegistrationEnabled: 'true', ADMode: 'Manual', ADDomain: 'shastan.local', ADContainer: 'OU=KB Users,DC=shastan,DC=local', ADUpnSuffix: '', LegacyHosts: 'srv-shp-web, learn.shastangroup.ir', ADGroup: 'KB-Members'
       },
       audit: [{ date: new Date(NOW - DAY).toISOString(), actor: 'منابع انسانی', action: 'Publish', contentId: 1, title: defs[0][0], details: '' }]
     };
@@ -127,9 +127,9 @@
   function role() { try { return localStorage.getItem(ROLE_KEY) || 'hr'; } catch (e) { return 'hr'; } }
   var USERS = {
     anonymous: null,
-    reader: { name: 'کاربر نمونه', email: 'demo@shastangroup.ir', login: 'demo', role: 'reader' },
-    hr: { name: 'منابع انسانی', email: 'hr@shastangroup.ir', login: 'hr', role: 'hr' },
-    admin: { name: 'مدیر سامانه', email: 'admin@shastangroup.ir', login: 'admin', role: 'admin' }
+    reader: { name: 'کاربر نمونه', email: 'demo@shastan.ir', login: 'demo', role: 'reader' },
+    hr: { name: 'منابع انسانی', email: 'hr@shastan.ir', login: 'hr', role: 'hr' },
+    admin: { name: 'مدیر سامانه', email: 'admin@shastan.ir', login: 'admin', role: 'admin' }
   };
   function me() { return USERS[role()] || null; }
   function isManager() { var u = me(); return !!u && (u.role === 'hr' || u.role === 'admin'); }
@@ -207,6 +207,7 @@
     s.author = { name: it.author.name, bio: it.author.bio, image: mediaUrl(it.author.image), rawImage: it.author.image };
     s.attachments = (it.attachments || []).map(function (a) { return { name: a.name, size: a.size, url: a.url, rawUrl: a.url }; });
     s.createdBy = it.createdBy;
+    s.audience = it.audience || [];
     return s;
   }
   function page(list, p) {
@@ -346,6 +347,28 @@
       return delay(r);
     },
     adminGet: function (id) { var d = needManager(); if (d) return d; var it = find(id); return it ? delay(adminItem(it)) : fail(404, 'محتوا یافت نشد.'); },
+    adminEditors: function () {
+      db.editors = db.editors || [{ id: 11, key: 'i:0#.w|shastan\\a.rezaei', name: 'علی رضایی', type: 'user', email: '' }];
+      return delay({ group: 'KB-HR', items: db.editors });
+    },
+    adminEditorAdd: function (key) {
+      db.editors = db.editors || [];
+      if (!db.editors.some(function (e) { return e.key === key; })) db.editors.push({ id: 100 + db.editors.length, key: key, name: key.split('\\').pop(), type: 'user', email: '' });
+      persist(); return delay({ ok: true });
+    },
+    adminEditorRemove: function (id) { db.editors = (db.editors || []).filter(function (e) { return e.id !== id; }); persist(); return delay({ ok: true }); },
+    adminPeople: function (q) {
+      var d = needManager(); if (d) return d;
+      var people = [
+        { key: 'SHASTAN\\a.rezaei', name: 'علی رضایی', type: 'user', detail: 'کارشناس منابع انسانی — SHASTAN\\a.rezaei' },
+        { key: 'SHASTAN\\m.karimi', name: 'مریم کریمی', type: 'user', detail: 'مدیر مالی — SHASTAN\\m.karimi' },
+        { key: 'SHASTAN\\Finance', name: 'Finance', type: 'group', detail: 'SHASTAN\\Finance' },
+        { key: 'SHASTAN\\Managers', name: 'Managers', type: 'group', detail: 'SHASTAN\\Managers' },
+        { key: 'KB-HR', name: 'KB-HR', type: 'spgroup', detail: '' }
+      ];
+      var n = String(q || '').toLowerCase();
+      return delay({ items: people.filter(function (p) { return (p.name + ' ' + p.key).toLowerCase().indexOf(n) >= 0; }) });
+    },
     adminSave: function (data) {
       var d = needManager(); if (d) return d;
       if (!data.title) return fail(400, 'عنوان الزامی است.');
@@ -356,6 +379,7 @@
       ['title', 'summary', 'body', 'type', 'category', 'tags', 'status', 'visibility', 'featured', 'allowComments', 'thumb', 'media', 'minutes'].forEach(function (k) { if (k in data) it[k] = data[k]; });
       it.publishAt = data.publishAt || (data.status === 'Published' && !it.publishAt ? new Date().toISOString() : it.publishAt || null);
       it.author = { name: data.authorName, bio: data.authorBio, image: data.authorImage };
+      it.audience = data.visibility === 'Public' ? [] : (data.audience || it.audience || []);
       it.modified = new Date().toISOString(); it.editor = me().name;
       audit(isNew ? 'Create' : it.status === 'Published' && !wasPublished ? 'Publish' : 'Update', it);
       persist();
@@ -569,7 +593,7 @@
     if (!db.registrations) {
       db.registrations = [
         { id: 1, firstName: 'نیلوفر', lastName: 'کاظمی', fullName: 'نیلوفر کاظمی', userName: 'n.kazemi', mobile: '09121234567', company: 'پتروشیمی بوشهر', status: 'Pending', trackingCode: 'R-1405-0001', date: new Date(NOW - 3600000 * 3).toISOString(), reviewedBy: '', reviewedOn: null, note: '', adAccount: '', adError: '', password: 'Kb!2026pass' },
-        { id: 2, firstName: 'محمد', lastName: 'صادقی', fullName: 'محمد صادقی', userName: 'm.sadeghi', mobile: '09351112233', company: '', status: 'Created', trackingCode: 'R-1405-0002', date: new Date(NOW - DAY * 2).toISOString(), reviewedBy: 'مدیر سامانه', reviewedOn: new Date(NOW - DAY).toISOString(), note: '', adAccount: 'm.sadeghi@ad.shastangroup.ir', adError: '' }
+        { id: 2, firstName: 'محمد', lastName: 'صادقی', fullName: 'محمد صادقی', userName: 'm.sadeghi', mobile: '09351112233', company: '', status: 'Created', trackingCode: 'R-1405-0002', date: new Date(NOW - DAY * 2).toISOString(), reviewedBy: 'مدیر سامانه', reviewedOn: new Date(NOW - DAY).toISOString(), note: '', adAccount: 'm.sadeghi@shastan.local', adError: '' }
       ];
       db.nextReg = 3;
     }
