@@ -207,6 +207,7 @@
     s.author = { name: it.author.name, bio: it.author.bio, image: mediaUrl(it.author.image), rawImage: it.author.image };
     s.attachments = (it.attachments || []).map(function (a) { return { name: a.name, size: a.size, url: a.url, rawUrl: a.url }; });
     s.createdBy = it.createdBy;
+    s.audience = it.audience || [];
     return s;
   }
   function page(list, p) {
@@ -346,6 +347,18 @@
       return delay(r);
     },
     adminGet: function (id) { var d = needManager(); if (d) return d; var it = find(id); return it ? delay(adminItem(it)) : fail(404, 'محتوا یافت نشد.'); },
+    adminPeople: function (q) {
+      var d = needManager(); if (d) return d;
+      var people = [
+        { key: 'SHASTAN\\a.rezaei', name: 'علی رضایی', type: 'user', detail: 'کارشناس منابع انسانی — SHASTAN\\a.rezaei' },
+        { key: 'SHASTAN\\m.karimi', name: 'مریم کریمی', type: 'user', detail: 'مدیر مالی — SHASTAN\\m.karimi' },
+        { key: 'SHASTAN\\Finance', name: 'Finance', type: 'group', detail: 'SHASTAN\\Finance' },
+        { key: 'SHASTAN\\Managers', name: 'Managers', type: 'group', detail: 'SHASTAN\\Managers' },
+        { key: 'KB-HR', name: 'KB-HR', type: 'spgroup', detail: '' }
+      ];
+      var n = String(q || '').toLowerCase();
+      return delay({ items: people.filter(function (p) { return (p.name + ' ' + p.key).toLowerCase().indexOf(n) >= 0; }) });
+    },
     adminSave: function (data) {
       var d = needManager(); if (d) return d;
       if (!data.title) return fail(400, 'عنوان الزامی است.');
@@ -356,6 +369,7 @@
       ['title', 'summary', 'body', 'type', 'category', 'tags', 'status', 'visibility', 'featured', 'allowComments', 'thumb', 'media', 'minutes'].forEach(function (k) { if (k in data) it[k] = data[k]; });
       it.publishAt = data.publishAt || (data.status === 'Published' && !it.publishAt ? new Date().toISOString() : it.publishAt || null);
       it.author = { name: data.authorName, bio: data.authorBio, image: data.authorImage };
+      it.audience = data.visibility === 'Public' ? [] : (data.audience || it.audience || []);
       it.modified = new Date().toISOString(); it.editor = me().name;
       audit(isNew ? 'Create' : it.status === 'Published' && !wasPublished ? 'Publish' : 'Update', it);
       persist();

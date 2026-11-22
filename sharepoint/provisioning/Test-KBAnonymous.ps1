@@ -40,10 +40,8 @@ $results = @(
   (Probe 'فایل CSS قالب' "$base/KBAssets/css/kb.css" 200),
   (Probe 'سرویس: bootstrap' "$api`?action=bootstrap" 200 -Contains '"anonymous":true'),
   (Probe 'سرویس: فهرست محتوای عمومی' "$api`?action=list&size=1" 200 -Contains '"items"'),
-  (Probe 'صفحه‌ی ثبت‌نام' "$base/KBPages/register.aspx" 200),
-  (Probe 'سرویس: کد امنیتی ثبت‌نام' "$api`?action=captcha" 200 -Contains '"token"'),
-  (Probe 'صفحه‌ی ورود اختصاصی' "$base/_layouts/15/KB/login.aspx" 200),
   (Probe 'محتوای شماره‌ی ۵ (cid)' "$base/KBPages/content.aspx?cid=5" 200),
+  (Probe 'سرویس: جست‌وجوی افراد (نباید باز شود)' "$api`?action=admin-people&q=ad" 'deny'),
   (Probe 'سرویس: ثبت‌نام‌ها (نباید باز شود)' "$api`?action=admin-registrations" 'deny'),
   (Probe 'پنل مدیریت (نباید باز شود)' "$base/KBPanel/panel.aspx" 'deny'),
   (Probe 'نمای لیست محتوا (نباید باز شود)' "$base/Lists/$($config.ContentList)/AllItems.aspx" 'deny'),
@@ -51,6 +49,10 @@ $results = @(
   (Probe 'REST تنظیمات (نباید باز شود)' "$rest('KBSettings')/items?`$top=1" 'deny'),
   (Probe 'سرویس: پنل مدیریت (نباید باز شود)' "$api`?action=admin-meta" 'deny')
 )
+if ($config.Registration -and $config.Registration.Enabled) {
+  $results += (Probe 'صفحه‌ی ثبت‌نام' "$base/KBPages/register.aspx" 200)
+  $results += (Probe 'سرویس: کد امنیتی ثبت‌نام' "$api`?action=captcha" 200 -Contains '"token"')
+}
 Write-Host "`n--- حساب فعلی ($([Security.Principal.WindowsIdentity]::GetCurrent().Name))" -ForegroundColor Cyan
 $results += (Probe 'سرویس: bootstrap با ورود' "$api`?action=bootstrap" 200 -Auth -Contains '"anonymous":false')
 

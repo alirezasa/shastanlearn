@@ -133,17 +133,21 @@ if ($WhatIfOnly) { Write-Note 'حالت WhatIfOnly: تغییری اعمال نش
 # ---------------------------------------------------------------- ۱. Web Application
 Write-Step 'تنظیمات Web Application'
 $zone = Resolve-KBZone $webApp $config
-$iis = $webApp.IisSettings[$zone]
-if (-not $iis.AllowAnonymous) {
-  if ($config.EnableAnonymousOnWebApplication) {
-    $iis.AllowAnonymous = $true
-    $webApp.Update()
-    $webApp.ProvisionGlobally()
-    Write-Ok "دسترسی ناشناس روی Zone $zone فعال شد (سایت‌های دیگر این Web Application تا وقتی خودشان فعال نکنند ناشناس نمی‌شوند)"
-  } else {
-    Write-Note "دسترسی ناشناس روی Zone $zone خاموش است؛ کاربران عمومی بدون ورود صفحات را نمی‌بینند."
-  }
-} else { Write-Ok 'دسترسی ناشناس Zone فعال است' }
+# Zone = Auto: همه‌ی Zoneهای این وب‌اپلیکیشن (نشانی داخلی و نشانی عمومی در AAM)؛ وگرنه فقط Zone تعیین‌شده
+$zones = if ([string]$config.Zone -and [string]$config.Zone -ne 'Auto') { @($zone) } else { @($webApp.IisSettings.Keys) }
+$changedZones = @()
+foreach ($z in $zones) {
+  $iis = $webApp.IisSettings[$z]
+  if (-not $iis) { continue }
+  if ($iis.AllowAnonymous) { Write-Ok "دسترسی ناشناس Zone $z فعال است"; continue }
+  if ($config.EnableAnonymousOnWebApplication) { $iis.AllowAnonymous = $true; $changedZones += $z }
+  else { Write-Note "دسترسی ناشناس روی Zone $z خاموش است؛ کاربران بدون ورود محتوای عمومی را نمی‌بینند." }
+}
+if ($changedZones) {
+  $webApp.Update()
+  $webApp.ProvisionGlobally()
+  Write-Ok "دسترسی ناشناس روی Zone $($changedZones -join ', ') فعال شد (سایت‌های دیگر این Web Application تا وقتی خودشان فعال نکنند ناشناس نمی‌شوند)"
+}
 if (-not $webApp.OutboundMailServiceInstance) {
   Write-Note 'Outgoing E-mail تنظیم نشده؛ ایمیل اطلاع‌رسانی نظرات ارسال نمی‌شود (Central Admin > System Settings > Configure outgoing e-mail settings).'
 }
@@ -477,6 +481,7 @@ if ($reg) {
   Set-Setting 'ADGroup' $reg.ADGroup $false
 }
 if ($config.LegacyHosts) { Set-Setting 'LegacyHosts' (@($config.LegacyHosts) -join ', ') $false }
+if ($config.AutoSignIn) { Set-Setting 'AutoSignIn' ([string]$config.AutoSignIn) $false }
 Write-Ok 'KBSettings (نگاشت ستون‌ها: FieldMap)'
 
 $i = 0

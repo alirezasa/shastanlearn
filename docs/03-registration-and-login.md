@@ -1,5 +1,8 @@
 # ثبت‌نام کاربران و صفحه‌ی ورود اختصاصی
 
+> **در پیکربندی فعلی (`learn.shastan.ir`) استفاده نمی‌شود:** کاربران با حساب ویندوز `shastan.local` وارد می‌شوند و ثبت‌نام خاموش است
+> (`Registration.Enabled = false`). راهنمای فعلی: [`04-migration-new-domain.md`](04-migration-new-domain.md). این سند برای فعال‌سازی دوباره نگه داشته شده است.
+
 > این راهنما مکمل [`02-deployment.md`](02-deployment.md) است. سایت: `https://learn.shastan.ir`، دامنه: `shastan.local`.
 
 ---

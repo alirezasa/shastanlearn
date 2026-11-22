@@ -37,6 +37,8 @@ param(
   [string]$NewDomain,
   # اعضای دامنه‌ی قدیم از گروه‌های KB-Admins / KB-HR / KB-Readers حذف شوند (فقط با -OldDomain)
   [switch]$RemoveOldMembers,
+  # محتوای اختصاصیِ بدون مخاطب به این گروه/کاربر مجوز مشاهده بگیرد (مثلاً KB-Readers = همه‌ی کاربران دامنه، یا SHASTAN\Managers)
+  [string]$GrantExistingPrivateTo,
   [switch]$SkipInstall,
   [switch]$SkipDeploy,
   [switch]$WhatIfOnly
@@ -57,13 +59,17 @@ Write-Step 'سایت مقصد'
 $web = Get-SPWeb $config.SiteUrl
 $webApp = $web.Site.WebApplication
 $zone = Resolve-KBZone $webApp $config
-Write-Host "    سایت: $($web.Url)   Web Application: $($webApp.Url)   Zone: $zone"
+Write-Host "    سایت: $($web.Url)   Web Application: $($webApp.Name) ($($webApp.Url))   Zone: $zone"
+if ($config.WebApplicationName -and $webApp.Name -ne $config.WebApplicationName) {
+  Write-Note "نام وب‌اپلیکیشن «$($webApp.Name)» است، نه «$($config.WebApplicationName)»؛ SiteUrl را بررسی کنید."
+}
 Write-Host '    Alternate Access Mapping:'
 Show-KBAlternateUrls $webApp
 $siteUri = [Uri]([string]$config.SiteUrl)
-$newBase = $siteUri.GetLeftPart([UriPartial]::Authority)
+$newBase = if ($config.PublicUrl) { ([Uri]([string]$config.PublicUrl)).GetLeftPart([UriPartial]::Authority) } else { $siteUri.GetLeftPart([UriPartial]::Authority) }
 $aamHosts = @($webApp.AlternateUrls | Where-Object { $_.Uri } | ForEach-Object { $_.Uri.Host.ToLower() })
 if ($aamHosts -notcontains $siteUri.Host.ToLower()) { Write-Note "میزبان $($siteUri.Host) در AAM این وب‌اپلیکیشن نیست؛ ابتدا AAM را اصلاح کنید." }
+if ($config.PublicUrl -and $aamHosts -notcontains ([Uri]([string]$config.PublicUrl)).Host.ToLower()) { Write-Note "نشانی عمومی $($config.PublicUrl) در AAM این وب‌اپلیکیشن نیست." }
 
 if (-not $OldHosts) { $OldHosts = @($config.LegacyHosts) }
 $OldHosts = @($OldHosts | Where-Object { $_ } | ForEach-Object { ([string]$_).Trim().ToLower() } |
@@ -120,7 +126,9 @@ if ($reg) {
   Set-SettingValue 'ADContainer' ([string]$reg.ADContainer)
   Set-SettingValue 'ADUpnSuffix' ([string]$reg.ADUpnSuffix)
   Set-SettingValue 'ADGroup' ([string]$reg.ADGroup)
+  Set-SettingValue 'RegistrationEnabled' ([string]$reg.Enabled).ToLower()
 }
+if ($config.AutoSignIn) { Set-SettingValue 'AutoSignIn' ([string]$config.AutoSignIn) }
 $legacy = @()
 $cur = Get-Setting 'LegacyHosts'
 if ($cur) { $legacy += ([string]$cur['Value']) -split '[,;\s]+' }
@@ -299,6 +307,33 @@ foreach ($spec in @(
   Write-Ok "$($spec.List): $n مورد $(if ($apply) { 'اصلاح شد' } else { 'نیاز به اصلاح دارد' })"
 }
 
+# ---------------------------------------------------------------- محتوای اختصاصی بدون مخاطب
+Write-Step 'محتوای اختصاصی'
+$visField = F 'Visibility' 'Visibility'
+$reader = $web.RoleDefinitions.GetByType([Microsoft.SharePoint.SPRoleType]::Reader)
+$grantTo = $null
+if ($GrantExistingPrivateTo) {
+  $grantTo = $web.SiteGroups | Where-Object { $_.Name -eq $GrantExistingPrivateTo }
+  if (-not $grantTo) { $grantTo = $web.EnsureUser($GrantExistingPrivateTo) }
+}
+$noAudience = 0; $granted = 0
+foreach ($it in (Get-Items $contentList)) {
+  $v = ([string]$it[$visField]).Trim().ToLower()
+  if ($v -in @('public', 'عمومی')) { continue }
+  if ($it.HasUniqueRoleAssignments) { continue }
+  $noAudience++
+  if ($grantTo -and $apply) {
+    $it.BreakRoleInheritance($true)
+    $ra = New-Object Microsoft.SharePoint.SPRoleAssignment($grantTo)
+    $ra.RoleDefinitionBindings.Add($reader)
+    $it.RoleAssignments.Add($ra)
+    $granted++
+  }
+}
+if ($granted) { Write-Ok "$granted محتوای اختصاصی به «$GrantExistingPrivateTo» مجوز مشاهده گرفت" }
+elseif ($noAudience) { Write-Note "$noAudience محتوای اختصاصی هنوز مخاطب ندارد و فقط مدیران آن را می‌بینند؛ از پنل ← ویرایش ← «افراد و گروه‌های مجاز» یا -GrantExistingPrivateTo KB-Readers" }
+else { Write-Ok 'همه‌ی محتواهای اختصاصی مخاطب دارند' }
+
 if ($OldDomain) {
   Write-Step "اعضای دامنه‌ی قدیم ($OldDomain) در گروه‌های پایگاه دانش"
   $memberRx = '(?i)(^|\|)' + [regex]::Escape($OldDomain) + '\\'
@@ -330,4 +365,4 @@ if (-not $SkipDeploy) {
 Write-Host "`nراه‌اندازی سایت جدید کامل شد: $($config.SiteUrl)" -ForegroundColor Green
 Write-Host '  - Install-KBLayouts.ps1 را روی سایر سرورهای وب (WFE) هم اجرا کنید.' -ForegroundColor Yellow
 Write-Host '  - اگر سایت پیش از این اسکریپت باز شده بود، روی سرورهای وب iisreset /noforce بزنید تا تنظیمات کش‌شده تازه شوند.' -ForegroundColor Yellow
-Write-Host '  - برای ورود با صفحه‌ی اختصاصی (FBA/LDAP روی shastan.local): docs/04-migration-new-domain.md بخش ۴' -ForegroundColor Yellow
+Write-Host '  - ورود کاربران با حساب ویندوز shastan.local است؛ برای ورود بی‌صدا نشانی سایت را در Local Intranet مرورگرها بگذارید (docs/04 بخش ۵).' -ForegroundColor Yellow

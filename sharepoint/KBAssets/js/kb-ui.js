@@ -44,7 +44,7 @@
     return html`<a class="kb-thumb ${cls || ''}" href="${KB.contentUrl(item.id)}" tabindex="-1" aria-hidden="true">
       ${item.thumb ? html`<img class="kb-img" src="${item.thumb}" alt="" loading="lazy" data-type="${item.type || ''}">` : ui.placeholder(item)}
       ${ui.typeBadge(item.type)}
-      <span class="kb-thumb-flags">${item.visibility === 'Private' ? html`<span class="kb-badge kb-badge-dark" title="ویژه‌ی کارکنان">${icon('lock')}</span>` : ''}${item.featured ? html`<span class="kb-badge kb-badge-dark" title="ویژه">${icon('star')}</span>` : ''}</span>
+      <span class="kb-thumb-flags">${item.visibility === 'Private' ? html`<span class="kb-badge kb-badge-dark" title="اختصاصی">${icon('lock')}</span>` : ''}${item.featured ? html`<span class="kb-badge kb-badge-dark" title="ویژه">${icon('star')}</span>` : ''}</span>
       ${media ? html`<span class="kb-play">${icon('play')}</span>` : ''}
     </a>`;
   };
@@ -399,7 +399,7 @@
       <div class="kb-container kb-footer-grid">
         <div>
           <a class="kb-logo" href="${KB.url('home')}"><span class="kb-logo-mark">${icon('lightbulb')}</span><span><b>${KB.setting('SiteTitle', 'پایگاه دانش شستان')}</b></span></a>
-          <p>${KB.setting('FooterText', 'پایگاه دانش سازمانی شستان؛ مرجع مقالات، ویدیوها، راهنماها و تجربه‌های کارکنان. محتوای عمومی برای همه و محتوای ویژه‌ی کارکنان پس از ورود با حساب سازمانی در دسترس است.')}</p>
+          <p>${KB.setting('FooterText', 'پایگاه دانش سازمانی شستان؛ مرجع مقالات، ویدیوها، راهنماها و تجربه‌های کارکنان. محتوای عمومی برای همه و محتوای اختصاصی برای افراد و گروه‌هایی که مدیر سامانه تعیین کرده در دسترس است.')}</p>
         </div>
         <div><h4>انواع محتوا</h4><div class="kb-footer-links">${types.map(function (t) { var m = U.typeMeta(t.value); return html`<a href="${KB.url('browse', { type: t.value })}">${icon(m.icon, 'kb-ico-sm')}${m.label} (${U.faNum(t.count)})</a>`; })}</div></div>
         <div><h4>دسته‌بندی‌ها</h4><div class="kb-footer-links">${cats.map(function (c) { return html`<a href="${KB.url('browse', { cat: c.title })}">${icon(c.icon, 'kb-ico-sm')}${c.title}</a>`; })}</div></div>
@@ -442,6 +442,24 @@
     onScroll();
   };
 
+  /* ------------------------------------------------------------------ ورود خودکار ویندوزی */
+  // کاربر ناشناس از شبکه‌ی داخلی یک‌بار در هر نشست به Authenticate.aspx فرستاده می‌شود؛ مرورگر روی رایانه‌ی عضو دامنه
+  // (سایت در Local Intranet) بدون پرسیدن رمز وارد می‌شود. بعد از «خروج» یا با ?noauto=1 تکرار نمی‌شود.
+  var AUTO_KEY = 'kb.autoSignIn';
+  KB.autoSignIn = function () {
+    if (/[?&]noauto=1/.test(location.search) || window.top !== window.self) return false;
+    try {
+      if (sessionStorage.getItem(AUTO_KEY)) return false;
+      sessionStorage.setItem(AUTO_KEY, '1');
+    } catch (e) { return false; }
+    location.replace(KB.loginUrl());
+    return true;
+  };
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest && e.target.closest('[data-kb-logout]');
+    if (a) { try { sessionStorage.setItem(AUTO_KEY, '1'); } catch (x) { } }
+  }, true);
+
   /* ------------------------------------------------------------------ راه‌اندازی */
   KB.pages = KB.pages || {};
   KB.boot = function () {
@@ -449,6 +467,7 @@
     var page = pageEl ? pageEl.getAttribute('data-kb-page') : 'home';
     var main = document.getElementById('kb-main') || pageEl;
     KB.api.bootstrap().then(function (b) {
+      if (b.autoSignIn && b.user && b.user.anonymous && KB.autoSignIn()) return;
       KB.state = b;
       KB.state.user = b.user || { role: 'anonymous', anonymous: true };
       document.title = (document.title && document.title.indexOf('|') < 0 ? document.title + ' | ' : '') + KB.setting('SiteTitle', 'پایگاه دانش شستان');

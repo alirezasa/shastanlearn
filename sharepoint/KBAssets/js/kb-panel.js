@@ -30,7 +30,7 @@
     return it.status || 'Draft';
   }
   function statusBadge(it) { var s = statusOf(it); return html`<span class="kb-status kb-status-${s}">${KB.STATUS[s] || s}</span>`; }
-  function visBadge(v) { return v === 'Public' ? html`<span class="kb-badge kb-badge-brand">${icon('globe')}عمومی</span>` : html`<span class="kb-badge kb-badge-private">${icon('lock')}کارکنان</span>`; }
+  function visBadge(v) { return v === 'Public' ? html`<span class="kb-badge kb-badge-brand">${icon('globe')}عمومی</span>` : html`<span class="kb-badge kb-badge-private">${icon('lock')}اختصاصی</span>`; }
   function thumbSmall(it) { return html`<span class="kb-row-thumb">${it.thumb ? html`<img class="kb-img" src="${it.thumb}" alt="" loading="lazy" data-type="${it.type || ''}">` : ui.placeholder(it)}</span>`; }
   function err(e) { ui.toast((e && e.message) || 'خطا', 'error'); }
   function loadingBox() { return html`<div class="kb-card kb-card-pad"><div class="kb-skel" style="height:24px;width:40%"></div><div class="kb-skel kb-skel-line"></div><div class="kb-skel kb-skel-line" style="width:70%"></div><div class="kb-skel" style="height:220px;margin-top:14px"></div></div>`; }
@@ -53,7 +53,7 @@
     U.mount(side, html`
       <div class="kb-panel-user">${ui.avatar(u.name)}<div class="kb-grow"><b>${u.name}</b><span>${KB.ROLES[u.role]}</span></div></div>
       ${links.map(link)}
-      ${KB.can.admin() ? html`<div class="kb-side-title">مدیر سامانه</div>${adminLinks.map(link)}${!KB.config.mock ? html`<a class="kb-side-link" href="${KB.config.site}/_layouts/15/settings.aspx" target="_blank" rel="noopener">${icon('external')}تنظیمات شیرپوینت</a><a class="kb-side-link" href="${KB.config.site}/_layouts/15/user.aspx" target="_blank" rel="noopener">${icon('users')}کاربران و دسترسی‌ها</a>` : ''}` : ''}
+      ${KB.can.admin() ? html`<div class="kb-side-title">مدیر سامانه</div>${adminLinks.filter(function (l) { return l[0] !== 'registrations' || KB.setting('RegistrationEnabled') === 'true'; }).map(link)}${!KB.config.mock ? html`<a class="kb-side-link" href="${KB.config.site}/_layouts/15/settings.aspx" target="_blank" rel="noopener">${icon('external')}تنظیمات شیرپوینت</a><a class="kb-side-link" href="${KB.config.site}/_layouts/15/user.aspx" target="_blank" rel="noopener">${icon('users')}کاربران و دسترسی‌ها</a>` : ''}` : ''}
       <div class="kb-side-title">میان‌بر</div>
       <a class="kb-side-link" href="${KB.url('home')}" target="_blank" rel="noopener">${icon('home')}مشاهده‌ی سایت</a>`);
   }
@@ -133,7 +133,7 @@
           ${stat('check-check', 'منتشرشده', c.published, '#008000', '#/content?status=Published')}
           ${stat('pencil', 'پیش‌نویس', c.draft, '#64748b', '#/content?status=Draft')}
           ${stat('calendar-clock', 'زمان‌بندی‌شده', c.scheduled, '#2563eb', '#/content?status=Scheduled')}
-          ${stat('lock', 'ویژه‌ی کارکنان', c.private, '#c2410c', '#/content?vis=Private')}
+          ${stat('lock', 'اختصاصی', c.private, '#c2410c', '#/content?vis=Private')}
           ${stat('eye', 'مجموع بازدید', d.views, '#0d9488')}
           ${stat('heart', 'مجموع پسند', d.likes, '#c22c2c')}
           ${stat('messages', 'نظرات در انتظار', d.comments.pending, '#d97706', '#/comments')}
@@ -176,7 +176,7 @@
           <div class="kb-toolbar-search" style="min-width:200px">${icon('search')}<input class="kb-input" type="search" placeholder="جستجو در عنوان، خلاصه، برچسب، نویسنده…" data-q aria-label="جستجو"></div>
           <select class="kb-select" data-type style="width:auto" aria-label="نوع"><option value="">همه‌ی انواع</option>${(meta.types || []).map(function (t) { return html`<option value="${t}">${U.typeMeta(t).label}</option>`; })}</select>
           <select class="kb-select" data-cat style="width:auto" aria-label="دسته"><option value="">همه‌ی دسته‌ها</option>${(KB.state.categories || []).map(function (c) { return html`<option value="${c.title}">${c.title}</option>`; })}</select>
-          <select class="kb-select" data-vis style="width:auto" aria-label="دسترسی"><option value="">همه‌ی سطوح</option><option value="Public">عمومی</option><option value="Private">ویژه‌ی کارکنان</option></select>
+          <select class="kb-select" data-vis style="width:auto" aria-label="دسترسی"><option value="">همه‌ی سطوح</option><option value="Public">عمومی</option><option value="Private">اختصاصی</option></select>
           <select class="kb-select" data-sort style="width:auto" aria-label="مرتب‌سازی">
             <option value="modified">آخرین تغییر</option><option value="new">تاریخ انتشار (جدید)</option><option value="old">تاریخ انتشار (قدیم)</option><option value="views">بازدید</option><option value="likes">پسند</option><option value="comments">نظر</option><option value="title">عنوان</option>
           </select>
@@ -202,7 +202,7 @@
         <button type="button" class="kb-btn kb-btn-ghost kb-btn-sm" data-bulk="Draft">${icon('pencil')}پیش‌نویس</button>
         <button type="button" class="kb-btn kb-btn-ghost kb-btn-sm" data-bulk="Archived">${icon('archive')}بایگانی</button>
         <button type="button" class="kb-btn kb-btn-ghost kb-btn-sm" data-bulk-vis="Public">${icon('globe')}عمومی</button>
-        <button type="button" class="kb-btn kb-btn-ghost kb-btn-sm" data-bulk-vis="Private">${icon('lock')}ویژه‌ی کارکنان</button>
+        <button type="button" class="kb-btn kb-btn-ghost kb-btn-sm" data-bulk-vis="Private">${icon('lock')}اختصاصی</button>
         <button type="button" class="kb-btn kb-btn-danger kb-btn-sm" data-bulk-del>${icon('trash')}حذف</button>
         <button type="button" class="kb-btn kb-btn-link kb-btn-sm" data-bulk-clear>لغو انتخاب</button>`);
     }
@@ -341,8 +341,14 @@
               <div class="kb-field"><span class="kb-label">سطح دسترسی</span>
                 <div class="kb-segment" style="display:flex" data-vis>
                   <button type="button" data-v="Public" aria-pressed="${it.visibility === 'Public'}" style="flex:1">${icon('globe')}عمومی</button>
-                  <button type="button" data-v="Private" aria-pressed="${it.visibility !== 'Public'}" style="flex:1">${icon('lock')}ویژه‌ی کارکنان</button>
+                  <button type="button" data-v="Private" aria-pressed="${it.visibility !== 'Public'}" style="flex:1">${icon('lock')}اختصاصی</button>
                 </div><span class="kb-hint" data-vis-hint></span></div>
+              <div class="kb-field kb-aud" data-aud ${it.visibility === 'Public' ? raw('hidden') : ''}>
+                <span class="kb-label">${icon('users', 'kb-ico-sm')} افراد و گروه‌های مجاز</span>
+                <div class="kb-aud-list" data-aud-list></div>
+                <div class="kb-autocomplete"><input class="kb-input" data-aud-q autocomplete="off" placeholder="جست‌وجوی نام، نام کاربری یا گروه AD…" aria-label="افزودن فرد یا گروه"><div class="kb-suggest" hidden data-aud-suggest></div></div>
+                <button type="button" class="kb-btn kb-btn-link kb-btn-sm" data-aud-all style="margin-top:6px">${icon('user-plus', 'kb-ico-sm')}همه‌ی کاربران دامنه (KB-Readers)</button>
+              </div>
               <div class="kb-field"><label class="kb-label" for="f-date">زمان انتشار <small>(خالی = همین حالا)</small></label><div id="kb-date-host"></div></div>
               <div class="kb-field"><label class="kb-switch"><input type="checkbox" name="featured" ${it.featured ? raw('checked') : ''}><span class="kb-switch-track"></span>نمایش در بخش ویژه‌ی صفحه‌ی اصلی</label></div>
               <div class="kb-field"><label class="kb-switch"><input type="checkbox" name="allowComments" ${it.allowComments !== false ? raw('checked') : ''}><span class="kb-switch-track"></span>امکان ثبت نظر</label></div>
@@ -421,8 +427,46 @@
     function drawVisHint() {
       U.$('[data-vis-hint]', form).textContent = visibility === 'Public'
         ? 'همه، حتی بدون ورود، این محتوا را می‌بینند.'
-        : 'فقط کاربرانی که با حساب سازمانی وارد شده‌اند می‌بینند؛ پیوست‌ها هم محافظت می‌شوند.';
+        : 'فقط افراد و گروه‌هایی که پایین انتخاب می‌کنید (و مدیران محتوا) می‌بینند؛ پیوست‌ها هم محافظت می‌شوند.';
+      var aud = U.$('[data-aud]', form);
+      if (aud) aud.hidden = visibility === 'Public';
     }
+
+    // مخاطبان محتوای اختصاصی (مجوز مشاهده روی همین آیتم)
+    state.audience = (it.audience || []).slice();
+    var AUD_ICON = { user: 'user', group: 'users', spgroup: 'shield' };
+    var AUD_TYPE = { user: 'کاربر', group: 'گروه AD', spgroup: 'گروه شیرپوینت' };
+    var audList = U.$('[data-aud-list]', form), audQ = U.$('[data-aud-q]', form), audSuggest = U.$('[data-aud-suggest]', form);
+    function drawAud() {
+      U.mount(audList, state.audience.length
+        ? state.audience.map(function (a, i) { return html`<span class="kb-chip-x" title="${AUD_TYPE[a.type] || ''} — ${a.key}">${icon(AUD_ICON[a.type] || 'user', 'kb-ico-sm')}${a.name || a.key}<button type="button" data-aud-rm="${i}" aria-label="حذف">${icon('x', 'kb-ico-sm')}</button></span>`; })
+        : html`<span class="kb-hint">هنوز کسی انتخاب نشده؛ فقط مدیران سامانه و منابع انسانی این محتوا را می‌بینند.</span>`);
+    }
+    function addAud(a) {
+      if (!a || !a.key) return;
+      if (!state.audience.some(function (x) { return x.key.toLowerCase() === a.key.toLowerCase(); })) { state.audience.push({ key: a.key, name: a.name, type: a.type }); drawAud(); markDirty(); }
+      audQ.value = ''; audSuggest.hidden = true;
+    }
+    drawAud();
+    U.on(audList, 'click', '[data-aud-rm]', function (e, b) { state.audience.splice(Number(b.getAttribute('data-aud-rm')), 1); drawAud(); markDirty(); });
+    U.on(form, 'click', '[data-aud-all]', function () { addAud({ key: 'KB-Readers', name: 'همه‌ی کاربران دامنه (KB-Readers)', type: 'spgroup' }); });
+    var audSeq = 0;
+    audQ.addEventListener('input', U.debounce(function () {
+      var q = audQ.value.trim(), seq = ++audSeq;
+      if (q.length < 2) { audSuggest.hidden = true; return; }
+      U.mount(audSuggest, html`<div class="kb-suggest-item kb-muted">در حال جست‌وجو…</div>`); audSuggest.hidden = false;
+      api.adminPeople(q).then(function (r) {
+        if (seq !== audSeq) return;
+        var list = r.items || [];
+        audSuggest._list = list;
+        U.mount(audSuggest, list.length
+          ? list.map(function (p, i) { return html`<button type="button" class="kb-suggest-item" style="width:100%" data-aud-pick="${i}">${icon(AUD_ICON[p.type] || 'user')}<span class="kb-grow">${p.name}<small>${AUD_TYPE[p.type] || ''}${p.detail ? ' — ' + p.detail : ''}</small></span></button>`; })
+          : html`<div class="kb-suggest-item kb-muted">نتیجه‌ای پیدا نشد</div>`);
+      }).catch(function (e) { if (seq === audSeq) U.mount(audSuggest, html`<div class="kb-suggest-item kb-muted">${e.message || 'خطا در جست‌وجو'}</div>`); });
+    }, 300));
+    audQ.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); var l = audSuggest._list; if (l && l.length && !audSuggest.hidden) addAud(l[0]); } });
+    audQ.addEventListener('blur', function () { setTimeout(function () { audSuggest.hidden = true; }, 200); });
+    U.on(audSuggest, 'mousedown', '[data-aud-pick]', function (e, b) { e.preventDefault(); addAud(audSuggest._list[Number(b.getAttribute('data-aud-pick'))]); });
     drawVisHint();
     U.on(form, 'click', '[data-vis] button', function (e, b) {
       visibility = b.getAttribute('data-v');
@@ -619,7 +663,7 @@
         function show(src) {
           U.$$('[data-src] button', m.el).forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-v') === src)); });
           if (src === 'lib') {
-            U.mount(pane, visibility === 'Private' ? html`<div class="kb-alert kb-alert-warn" style="margin-bottom:12px">${icon('alert')}<span>این محتوا «ویژه‌ی کارکنان» است، اما فایل‌های کتابخانه‌ی رسانه برای همه قابل دریافت‌اند. برای فایل‌های محرمانه از «پیوست‌های این محتوا» استفاده کنید.</span></div><div data-lib></div>` : html`<div data-lib></div>`);
+            U.mount(pane, visibility === 'Private' ? html`<div class="kb-alert kb-alert-warn" style="margin-bottom:12px">${icon('alert')}<span>این محتوا «اختصاصی» است، اما فایل‌های کتابخانه‌ی رسانه برای همه قابل دریافت‌اند. برای فایل‌های محرمانه از «پیوست‌های این محتوا» استفاده کنید.</span></div><div data-lib></div>` : html`<div data-lib></div>`);
             mediaBrowser(U.$('[data-lib]', pane), { pick: kind, onPick: function (f) { chosen = f; m.close(); } });
           } else if (src === 'att') {
             var list = state.attachments.filter(function (a) { var k = U.isMediaUrl(a.name); return kind === 'any' || (kind === 'image' ? k === 'image' : k === 'video' || k === 'audio'); });
@@ -664,6 +708,7 @@
         tags: state.tags.slice(),
         status: form.elements.status.value,
         visibility: visibility,
+        audience: visibility === 'Private' ? state.audience.map(function (a) { return { key: a.key, type: a.type, name: a.name }; }) : [],
         publishAt: state.publishAt || null,
         featured: form.elements.featured.checked,
         allowComments: form.elements.allowComments.checked,
@@ -749,8 +794,8 @@
     function askMove(urls) {
       return new Promise(function (resolve) {
         var m = ui.modal({
-          title: 'فایل‌های عمومی در محتوای ویژه‌ی کارکنان', icon: 'alert',
-          body: html`<p style="line-height:2">این محتوا «ویژه‌ی کارکنان» است، اما ${U.faNum(urls.length)} فایل از کتابخانه‌ی عمومی رسانه در آن استفاده شده که <b>بدون ورود هم قابل دریافت است</b>:</p>
+          title: 'فایل‌های عمومی در محتوای اختصاصی', icon: 'alert',
+          body: html`<p style="line-height:2">این محتوا «اختصاصی» است، اما ${U.faNum(urls.length)} فایل از کتابخانه‌ی عمومی رسانه در آن استفاده شده که <b>بدون ورود هم قابل دریافت است</b>:</p>
             <ul style="margin:10px 0;padding-right:18px;list-style:disc;direction:ltr;text-align:right">${urls.map(function (u) { return html`<li>${U.fileNameOf(u)}</li>`; })}</ul>
             <p style="line-height:2">پیشنهاد می‌شود این فایل‌ها به پیوست‌های همین محتوا منتقل شوند تا فقط کارکنان به آن‌ها دسترسی داشته باشند.</p>
             <label class="kb-check" style="margin-top:8px"><input type="checkbox" data-rm checked>حذف نسخه‌ی عمومی از کتابخانه‌ی رسانه</label>`,
@@ -786,6 +831,7 @@
         state.tags = d.tags || []; drawTags(); state.thumb = d.thumb || ''; drawThumb(); state.media = d.media || ''; drawMedia();
         form.elements.authorName.value = d.authorName || ''; form.elements.authorBio.value = d.authorBio || ''; state.authorImage = d.authorImage || ''; drawAuthorImg();
         visibility = d.visibility || visibility; U.$$('[data-vis] button', form).forEach(function (x) { x.setAttribute('aria-pressed', String(x.getAttribute('data-v') === visibility)); }); drawVisHint();
+        if (d.audience) { state.audience = d.audience; drawAud(); }
         restoreBox.remove(); markDirty(); sumCount();
       });
       U.on(restoreBox, 'click', '[data-discard]', function () { KB.local.remove(draftKey); restoreBox.remove(); });
@@ -863,7 +909,7 @@
   /* ==================================================================== کتابخانه‌ی رسانه */
   function mediaPage() {
     U.mount(main, html`${head('کتابخانه‌ی رسانه', 'images', 'تصاویر، ویدیوها، فایل‌های صوتی و اسناد عمومی (' + (meta.mediaTitle || 'DocLib') + ')')}
-      <div class="kb-alert" style="margin-bottom:16px">${icon('info')}<span>فایل‌های این کتابخانه <b>برای همه، حتی بدون ورود</b>، قابل مشاهده‌اند. فایل‌های محرمانه را به‌صورت «پیوست» در همان محتوای ویژه‌ی کارکنان بارگذاری کنید.</span></div>
+      <div class="kb-alert" style="margin-bottom:16px">${icon('info')}<span>فایل‌های این کتابخانه <b>برای همه، حتی بدون ورود</b>، قابل مشاهده‌اند. فایل‌های محرمانه را به‌صورت «پیوست» در همان محتوای اختصاصی بارگذاری کنید.</span></div>
       <div id="kb-media"></div>`);
     mediaBrowser(U.$('#kb-media'), {});
   }
@@ -1167,7 +1213,7 @@
     ['CommentsEnabled', 'نظرات', 'select:true=فعال|false=غیرفعال در کل سامانه', ''],
     ['CommentModeration', 'انتشار نظرات', 'select:Post=بلافاصله منتشر شود (مدیر محتوا می‌تواند مخفی کند)|Pre=پس از تأیید مدیر محتوا منتشر شود', ''],
     ['NotifyEmails', 'ایمیل اطلاع‌رسانی نظرات جدید', 'text', 'چند نشانی را با ویرگول جدا کنید. Outgoing E-mail شیرپوینت باید تنظیم باشد.'],
-    ['DefaultVisibility', 'سطح دسترسی پیش‌فرض محتوای جدید', 'select:Public=عمومی|Private=ویژه‌ی کارکنان', ''],
+    ['DefaultVisibility', 'سطح دسترسی پیش‌فرض محتوای جدید', 'select:Public=عمومی|Private=اختصاصی', ''],
     ['#', 'ثبت‌نام کاربران و Active Directory'],
     ['RegistrationEnabled', 'ثبت‌نام کاربر جدید', 'select:true=فعال (دکمه‌ی ثبت‌نام در هدر)|false=غیرفعال', ''],
     ['ADMode', 'ایجاد حساب پس از تأیید', 'select:Manual=دستی — مدیر حساب را در AD می‌سازد|Auto=خودکار — سرویس شیرپوینت حساب را در AD می‌سازد', 'برای حالت خودکار، حساب App Pool شیرپوینت باید روی OU مقصد مجوز ساخت کاربر و تنظیم رمز داشته باشد (راهنمای docs/03).'],
@@ -1175,6 +1221,8 @@
     ['ADContainer', 'OU مقصد کاربران جدید', 'ltr', 'مثال: OU=KB Users,DC=shastan,DC=local'],
     ['ADUpnSuffix', 'پسوند UPN', 'ltr', 'خالی = همان دامنه'],
     ['ADGroup', 'گروه AD برای کاربران جدید (اختیاری)', 'ltr', 'مثال: KB-Members'],
+    ['#', 'ورود کاربران'],
+    ['AutoSignIn', 'ورود خودکار با حساب ویندوز', 'select:Internal=فقط از شبکه‌ی داخلی (پیشنهادی)|Always=همیشه|Off=خاموش — کاربر خودش «ورود» را می‌زند', 'رایانه‌های عضو دامنه بدون پرسیدن رمز وارد می‌شوند، به شرط اینکه نشانی سایت در Local Intranet مرورگر باشد (Group Policy).'],
     ['#', 'نشانی‌ها'],
     ['LegacyHosts', 'نشانی‌های قدیمی سامانه', 'ltr', 'با ویرگول جدا کنید (مثال: srv-shp-web, learn.shastangroup.ir). پیوند و تصویرهای مطلقی که روی این نشانی‌ها مانده‌اند نسبی نمایش داده می‌شوند.']
   ];

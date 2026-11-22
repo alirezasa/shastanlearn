@@ -1,5 +1,7 @@
 {
-  "SiteUrl": "https://learn.shastan.ir",
+  "SiteUrl": "http://srv-shpfront:2028",
+  "PublicUrl": "https://learn.shastan.ir",
+  "WebApplicationName": "sharepoint - learn",
   "Zone": "Auto",
   "EnableAnonymousOnWebApplication": true,
   "EnableLockdownMode": true,
@@ -30,8 +32,10 @@
   "CommentModeration": "Post",
   "NotifyEmails": "ICT@SHASTAN.IR",
 
+  "AutoSignIn": "Internal",
+
   "Registration": {
-    "Enabled": true,
+    "Enabled": false,
     "ADMode": "Manual",
     "ADDomain": "shastan.local",
     "ADContainer": "OU=KB Users,DC=shastan,DC=local",
