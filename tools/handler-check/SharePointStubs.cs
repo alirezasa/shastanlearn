@@ -95,7 +95,9 @@ namespace Microsoft.SharePoint
 }
 namespace Microsoft.SharePoint.Administration
 {
-    public class SPWebApplication { public int MaximumFileSize { get { return 0; } } }
+    public class SPWebApplication { public int MaximumFileSize { get { return 0; } } public SPAlternateUrlCollection AlternateUrls { get { return null; } } }
+    public class SPAlternateUrl { public System.Uri Uri { get { return null; } } public string IncomingUrl { get { return null; } } public Microsoft.SharePoint.SPUrlZone UrlZone { get { return 0; } } }
+    public class SPAlternateUrlCollection : System.Collections.Generic.List<SPAlternateUrl> { }
     public enum TraceSeverity { None, Unexpected, Monitorable, High, Medium, Verbose }
     public enum EventSeverity { None, Error, Warning, Information }
     public class SPDiagnosticsCategory { public SPDiagnosticsCategory(string n, TraceSeverity t, EventSeverity e) { } }

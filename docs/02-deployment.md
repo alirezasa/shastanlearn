@@ -1,6 +1,6 @@
 # راهنمای گام‌به‌گام استقرار پایگاه دانش روی SharePoint Server 2019
 
-> آدرس: `http://srv-shp-web` (پورت ۸۰) — کاربران در `ad.shastangroup.ir`.
+> آدرس: `https://learn.shastan.ir` — کاربران در `shastan.local`. انتقال از وب‌اپلیکیشن قبلی با ShareGate: [`04-migration-new-domain.md`](04-migration-new-domain.md).
 > همه‌ی لیست‌ها، ستون‌ها، گروه‌ها و مجوزها **با اسکریپت** ساخته می‌شوند و اجرای دوباره‌ی اسکریپت‌ها بی‌خطر است.
 > لیست `KnowledgeContent` و کتابخانه‌ی `DocLib` موجود حفظ می‌شوند؛ فقط ستون‌های لازم به آن‌ها اضافه می‌شود.
 
@@ -49,15 +49,15 @@ C:\Deploy\kb\
 
 ```json
 {
-  "SiteUrl": "http://srv-shp-web",
-  "Zone": "Default",
+  "SiteUrl": "https://learn.shastan.ir",
+  "Zone": "Auto",
   "EnableAnonymousOnWebApplication": true,
   "EnableLockdownMode": true,
   "SetWelcomePage": true,
   "ContentList": "KnowledgeContent",
   "MediaLibrary": "DocLib",
-  "AdminsMembers": ["AD.SHASTANGROUP.IR\\KB-Admins"],
-  "HRMembers": ["AD.SHASTANGROUP.IR\\KB-HR"],
+  "AdminsMembers": ["SHASTAN\\KB-Admins"],
+  "HRMembers": ["SHASTAN\\KB-HR"],
   "ReadersMembers": ["c:0(.s|true"],
   "ExistingItemsStatus": "Published",
   "ExistingItemsVisibility": "Public",
@@ -72,6 +72,8 @@ C:\Deploy\kb\
 | کلید | توضیح |
 |------|-------|
 | `SiteUrl` | آدرس سایتی که `KnowledgeContent` در آن است. اگر زیرسایت است، آدرس کامل زیرسایت |
+| `Zone` | `Auto` (پیش‌فرض) = از Alternate Access Mapping بر اساس `SiteUrl` پیدا می‌شود؛ یا صریحاً `Default` / `Intranet` / `Internet` / `Extranet` / `Custom` |
+| `LegacyHosts` | نشانی‌های قبلی سامانه؛ پیوند و تصویرهای مطلقی که روی این نشانی‌ها مانده‌اند نسبی نمایش داده می‌شوند (از پنل ← تنظیمات هم قابل ویرایش است) |
 | `EnableAnonymousOnWebApplication` | دسترسی ناشناس روی Zone وب‌اپلیکیشن (لازم برای کاربران بدون ورود). سایت‌های دیگر این وب‌اپلیکیشن تا خودشان فعال نکنند ناشناس نمی‌شوند |
 | `EnableLockdownMode` | کاربر ناشناس به فرم‌ها و نمای لیست‌ها دسترسی نداشته باشد (پیشنهاد: `true`) |
 | `SetWelcomePage` | صفحه‌ی خانه‌ی سایت = `KBPages/index.aspx`. اگر سایت صفحه‌ی خانه‌ی دیگری دارد و نمی‌خواهید عوض شود: `false` (پایگاه دانش در `/KBPages/index.aspx` در دسترس است) |
@@ -132,7 +134,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 ```powershell
 .\Install-KBLayouts.ps1
 ```
-`KBApi.ashx` را در `…\16\TEMPLATE\LAYOUTS\KB\` کپی می‌کند (`http://srv-shp-web/_layouts/15/KB/KBApi.ashx`).
+`KBApi.ashx` را در `…\16\TEMPLATE\LAYOUTS\KB\` کپی می‌کند (`https://learn.shastan.ir/_layouts/15/KB/KBApi.ashx`).
 Visual Studio، WSP یا IISReset لازم نیست؛ ASP.NET در اولین درخواست کامپایل می‌کند.
 اگر فارم چند سرور وب (WFE) دارد، پوشه‌ی `sharepoint` را روی هرکدام کپی و همین اسکریپت را اجرا کنید.
 
@@ -153,10 +155,10 @@ Visual Studio، WSP یا IISReset لازم نیست؛ ASP.NET در اولین د
 
 ### تست دستی
 
-**الف) کاربر عمومی** — پنجره‌ی InPrivate، آدرس `http://srv-shp-web`
+**الف) کاربر عمومی** — پنجره‌ی InPrivate، آدرس `https://learn.shastan.ir`
 - [ ] صفحه‌ی اصلی بدون درخواست نام کاربری باز می‌شود و محتوای «عمومی» دیده می‌شود.
 - [ ] محتوای «خصوصی» در فهرست‌ها و جستجو نیست؛ باز کردن پیوند مستقیم آن صفحه‌ی «ویژه‌ی کارکنان — ورود» را نشان می‌دهد.
-- [ ] `http://srv-shp-web/Lists/KnowledgeContent/AllItems.aspx` و `http://srv-shp-web/KBPanel/panel.aspx` نام کاربری می‌خواهند.
+- [ ] `https://learn.shastan.ir/Lists/KnowledgeContent/AllItems.aspx` و `https://learn.shastan.ir/KBPanel/panel.aspx` نام کاربری می‌خواهند.
 - [ ] دکمه‌ی «ورود کارکنان» → ورود با حساب دامنه → بازگشت به همان صفحه.
 
 **ب) کارمند** (عضو هیچ گروه KB نیست)
@@ -179,7 +181,7 @@ Visual Studio، WSP یا IISReset لازم نیست؛ ASP.NET در اولین د
 |-------|-----------|
 | کاربر عمومی پنجره‌ی نام کاربری می‌بیند | دسترسی ناشناس روی Zone یا کتابخانه‌های `KBPages`/`KBAssets` یا Master Page Gallery خاموش است؛ `Install-KBPortal.ps1` را دوباره اجرا کنید |
 | صفحه بدون ظاهر (بدون CSS) | `Deploy-KBFiles.ps1` اجرا نشده یا `KBAssets` برای ناشناس قابل خواندن نیست |
-| «بارگذاری انجام نشد» روی صفحه | سرویس نصب نشده (`Install-KBLayouts.ps1` روی همه‌ی سرورهای وب) یا لیست `KBSettings` نیست (`Install-KBPortal.ps1`). آدرس `http://srv-shp-web/_layouts/15/KB/KBApi.ashx?action=bootstrap` را مستقیم باز کنید تا پیام خطا دیده شود |
+| «بارگذاری انجام نشد» روی صفحه | سرویس نصب نشده (`Install-KBLayouts.ps1` روی همه‌ی سرورهای وب) یا لیست `KBSettings` نیست (`Install-KBPortal.ps1`). آدرس `https://learn.shastan.ir/_layouts/15/KB/KBApi.ashx?action=bootstrap` را مستقیم باز کنید تا پیام خطا دیده شود |
 | خطای کامپایل در آدرس بالا | متن خطا را بفرستید؛ لاگ ULS با دسته‌ی `ShastanKB` |
 | متن فارسی صفحات به‌هم‌ریخته است | فایل‌ها بدون BOM بارگذاری شده‌اند؛ `Deploy-KBFiles.ps1` این را خودکار اصلاح می‌کند (دستی بارگذاری نکنید) |
 | HR منوی پنل را نمی‌بیند | کاربر عضو گروه AD نیست، گروه AD در `KB-HR` نیست، یا از قبل وارد شده بوده؛ خروج و ورود دوباره |

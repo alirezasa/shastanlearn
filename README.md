@@ -1,11 +1,11 @@
 # پایگاه دانش شستان
 
-پایگاه دانش سازمانی روی **SharePoint Server 2019 (On-Premises)** — `http://srv-shp-web`
+پایگاه دانش سازمانی روی **SharePoint Server 2019 (On-Premises)** — `https://learn.shastan.ir`
 
 | کاربر | چه می‌بیند / چه می‌کند |
 |-------|------------------------|
 | **عمومی** (بدون ورود) | محتوای «عمومی» منتشرشده: مقاله، ویدیو، پادکست، راهنما، گزارش، فایل‌های پیوست؛ ثبت‌نام و پیگیری درخواست |
-| **کارمند** (ورود با حساب `ad.shastangroup.ir`) | + محتوای «ویژه‌ی کارکنان»، پسند، ذخیره برای بعد، ثبت نظر و پاسخ |
+| **کارمند** (ورود با حساب `shastan.local`) | + محتوای «ویژه‌ی کارکنان»، پسند، ذخیره برای بعد، ثبت نظر و پاسخ |
 | **منابع انسانی** (گروه `KB-HR`) | + پنل مدیریت محتوا: ویرایشگر حرفه‌ای، زمان‌بندی انتشار، کتابخانه‌ی رسانه، پیوست‌ها، دسته‌ها، تأیید نظرات |
 | **مدیر سامانه** (گروه `KB-Admins`) | + دسترسی کامل، تأیید ثبت‌نام‌ها و ایجاد حساب در Active Directory، تنظیمات سامانه، گزارش فعالیت |
 
@@ -18,6 +18,7 @@
 | [`docs/01-review-and-design.md`](docs/01-review-and-design.md) | بررسی قالب اولیه، معماری، نقش‌ها و مجوزها، لیست‌ها و ستون‌ها، امکانات صفحات و پنل |
 | [`docs/02-deployment.md`](docs/02-deployment.md) | **راهنمای گام‌به‌گام نصب روی شیرپوینت**، تست و رفع اشکال |
 | [`docs/03-registration-and-login.md`](docs/03-registration-and-login.md) | ثبت‌نام کاربران، ایجاد حساب در Active Directory (خودکار یا دستی) و صفحه‌ی ورود اختصاصی (Forms + LDAP) |
+| [`docs/04-migration-new-domain.md`](docs/04-migration-new-domain.md) | **انتقال به وب‌اپلیکیشن جدید** (`learn.shastan.ir` / `shastan.local`) بعد از ShareGate با `Initialize-KBMigratedSite.ps1` |
 
 ## نصب سریع
 
@@ -34,6 +35,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\Set-KBFormsAuth.ps1                # (اختیاری) صفحه‌ی ورود اختصاصی — پس از تنظیم web.config، docs/03
 .\Test-KBAnonymous.ps1               # بررسی دسترسی‌ها
 ```
+
+انتقال از وب‌اپلیکیشن قبلی (داده‌ها با ShareGate): به‌جای دستورهای بالا `.\Initialize-KBMigratedSite.ps1 -WhatIfOnly` و سپس `.\Initialize-KBMigratedSite.ps1` — [`docs/04`](docs/04-migration-new-domain.md).
 
 برای استقرار **Node.js یا Build لازم نیست**؛ پوشه‌ی `sharepoint` همان بسته‌ی نهایی است.
 

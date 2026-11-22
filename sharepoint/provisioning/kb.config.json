@@ -1,6 +1,6 @@
 {
-  "SiteUrl": "http://srv-shp-web",
-  "Zone": "Default",
+  "SiteUrl": "https://learn.shastan.ir",
+  "Zone": "Auto",
   "EnableAnonymousOnWebApplication": true,
   "EnableLockdownMode": true,
   "SetWelcomePage": true,
@@ -8,8 +8,8 @@
   "ContentList": "KnowledgeContent",
   "MediaLibrary": "DocLib",
 
-  "AdminsMembers": ["AD.SHASTANGROUP.IR\\KB-Admins"],
-  "HRMembers": ["AD.SHASTANGROUP.IR\\KB-HR"],
+  "AdminsMembers": ["SHASTAN\\KB-Admins"],
+  "HRMembers": ["SHASTAN\\KB-HR"],
   "ReadersMembers": ["c:0(.s|true"],
 
   "ExistingItemsStatus": "Published",
@@ -33,9 +33,11 @@
   "Registration": {
     "Enabled": true,
     "ADMode": "Manual",
-    "ADDomain": "ad.shastangroup.ir",
-    "ADContainer": "OU=KB Users,DC=ad,DC=shastangroup,DC=ir",
-    "ADUpnSuffix": "ad.shastangroup.ir",
+    "ADDomain": "shastan.local",
+    "ADContainer": "OU=KB Users,DC=shastan,DC=local",
+    "ADUpnSuffix": "shastan.local",
     "ADGroup": ""
-  }
+  },
+
+  "LegacyHosts": ["srv-shp-web", "learn.shastangroup.ir", "testlearn.shastangroup.ir"]
 }

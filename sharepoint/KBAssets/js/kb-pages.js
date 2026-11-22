@@ -371,7 +371,7 @@
       if (e.status === 401 || e.code === 'login') {
         U.mount(el, html`<div class="kb-container" style="padding-top:28px"><div class="kb-article kb-lock-screen">
           <div class="kb-empty-icon">${icon('lock')}</div><h2 style="font-size:20px">این محتوا ویژه‌ی کارکنان است</h2>
-          <p class="kb-muted" style="margin:8px auto 20px;max-width:460px">برای مطالعه‌ی این مطلب با نام کاربری و رمز عبور شبکه‌ی سازمان (ad.shastangroup.ir) وارد شوید.</p>
+          <p class="kb-muted" style="margin:8px auto 20px;max-width:460px">برای مطالعه‌ی این مطلب با نام کاربری و رمز عبور شبکه‌ی سازمان وارد شوید.</p>
           <a class="kb-btn kb-btn-brand kb-btn-lg" href="${KB.loginUrl()}" data-kb-login>${icon('log-in')}ورود</a>
           <p style="margin-top:14px"><a class="kb-more" href="${KB.url('browse')}">مشاهده‌ی محتوای عمومی</a></p></div></div>`);
       } else if (e.status === 404) {

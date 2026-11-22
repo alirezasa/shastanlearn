@@ -36,6 +36,7 @@ if (-not (Get-PSSnapin Microsoft.SharePoint.PowerShell -ErrorAction SilentlyCont
 function Write-Step([string]$m) { Write-Host "`n==> $m" -ForegroundColor Cyan }
 function Write-Ok([string]$m) { Write-Host "    [OK] $m" -ForegroundColor Green }
 function Write-Note([string]$m) { Write-Host "    [!] $m" -ForegroundColor Yellow }
+. (Join-Path $PSScriptRoot 'KBCommon.ps1')
 
 # ---------------------------------------------------------------- ورودی‌ها
 $config = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -131,16 +132,16 @@ if ($WhatIfOnly) { Write-Note 'حالت WhatIfOnly: تغییری اعمال نش
 
 # ---------------------------------------------------------------- ۱. Web Application
 Write-Step 'تنظیمات Web Application'
-$zone = [Microsoft.SharePoint.Administration.SPUrlZone]$config.Zone
+$zone = Resolve-KBZone $webApp $config
 $iis = $webApp.IisSettings[$zone]
 if (-not $iis.AllowAnonymous) {
   if ($config.EnableAnonymousOnWebApplication) {
     $iis.AllowAnonymous = $true
     $webApp.Update()
     $webApp.ProvisionGlobally()
-    Write-Ok "دسترسی ناشناس روی Zone $($config.Zone) فعال شد (سایت‌های دیگر این Web Application تا وقتی خودشان فعال نکنند ناشناس نمی‌شوند)"
+    Write-Ok "دسترسی ناشناس روی Zone $zone فعال شد (سایت‌های دیگر این Web Application تا وقتی خودشان فعال نکنند ناشناس نمی‌شوند)"
   } else {
-    Write-Note "دسترسی ناشناس روی Zone $($config.Zone) خاموش است؛ کاربران عمومی بدون ورود صفحات را نمی‌بینند."
+    Write-Note "دسترسی ناشناس روی Zone $zone خاموش است؛ کاربران عمومی بدون ورود صفحات را نمی‌بینند."
   }
 } else { Write-Ok 'دسترسی ناشناس Zone فعال است' }
 if (-not $webApp.OutboundMailServiceInstance) {
@@ -475,6 +476,7 @@ if ($reg) {
   Set-Setting 'ADUpnSuffix' $reg.ADUpnSuffix $false
   Set-Setting 'ADGroup' $reg.ADGroup $false
 }
+if ($config.LegacyHosts) { Set-Setting 'LegacyHosts' (@($config.LegacyHosts) -join ', ') $false }
 Write-Ok 'KBSettings (نگاشت ستون‌ها: FieldMap)'
 
 $i = 0

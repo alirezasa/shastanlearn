@@ -1171,10 +1171,12 @@
     ['#', 'ثبت‌نام کاربران و Active Directory'],
     ['RegistrationEnabled', 'ثبت‌نام کاربر جدید', 'select:true=فعال (دکمه‌ی ثبت‌نام در هدر)|false=غیرفعال', ''],
     ['ADMode', 'ایجاد حساب پس از تأیید', 'select:Manual=دستی — مدیر حساب را در AD می‌سازد|Auto=خودکار — سرویس شیرپوینت حساب را در AD می‌سازد', 'برای حالت خودکار، حساب App Pool شیرپوینت باید روی OU مقصد مجوز ساخت کاربر و تنظیم رمز داشته باشد (راهنمای docs/03).'],
-    ['ADDomain', 'دامنه', 'ltr', 'مثال: ad.shastangroup.ir'],
-    ['ADContainer', 'OU مقصد کاربران جدید', 'ltr', 'مثال: OU=KB Users,OU=Shastan Portal,DC=ad,DC=shastangroup,DC=ir'],
+    ['ADDomain', 'دامنه', 'ltr', 'مثال: shastan.local'],
+    ['ADContainer', 'OU مقصد کاربران جدید', 'ltr', 'مثال: OU=KB Users,DC=shastan,DC=local'],
     ['ADUpnSuffix', 'پسوند UPN', 'ltr', 'خالی = همان دامنه'],
-    ['ADGroup', 'گروه AD برای کاربران جدید (اختیاری)', 'ltr', 'مثال: KB-Members']
+    ['ADGroup', 'گروه AD برای کاربران جدید (اختیاری)', 'ltr', 'مثال: KB-Members'],
+    ['#', 'نشانی‌ها'],
+    ['LegacyHosts', 'نشانی‌های قدیمی سامانه', 'ltr', 'با ویرگول جدا کنید (مثال: srv-shp-web, learn.shastangroup.ir). پیوند و تصویرهای مطلقی که روی این نشانی‌ها مانده‌اند نسبی نمایش داده می‌شوند.']
   ];
   function settingsPage() {
     U.mount(main, html`${head('تنظیمات سامانه', 'settings', 'متن‌ها و رفتار عمومی پایگاه دانش')}${loadingBox()}`);
@@ -1217,10 +1219,10 @@
   function psQuote(s) { return "'" + String(s || '').replace(/'/g, "''") + "'"; }
   /** دستور PowerShell (ماژول ActiveDirectory) برای ایجاد دستی حساب */
   function adCommand(r, ad) {
-    var path = ad.container || 'OU=KB Users,DC=ad,DC=shastangroup,DC=ir';
+    var path = ad.container || 'OU=KB Users,DC=shastan,DC=local';
     var lines = [
       'Import-Module ActiveDirectory',
-      'New-ADUser -Name ' + psQuote(r.fullName) + ' -SamAccountName ' + psQuote(r.userName) + ' -UserPrincipalName ' + psQuote(r.userName + '@' + (ad.upnSuffix || 'ad.shastangroup.ir')) + ' `',
+      'New-ADUser -Name ' + psQuote(r.fullName) + ' -SamAccountName ' + psQuote(r.userName) + ' -UserPrincipalName ' + psQuote(r.userName + '@' + (ad.upnSuffix || ad.domain || 'shastan.local')) + ' `',
       '  -GivenName ' + psQuote(r.firstName) + ' -Surname ' + psQuote(r.lastName) + ' -DisplayName ' + psQuote(r.fullName) + ' `',
       '  -MobilePhone ' + psQuote(r.mobile) + (r.company ? ' -Company ' + psQuote(r.company) : '') + ' -Description ' + psQuote('ثبت‌نام از پایگاه دانش — ' + r.trackingCode) + ' `',
       '  -Path ' + psQuote(path) + ' -AccountPassword (Read-Host -AsSecureString "Password") -Enabled $true'

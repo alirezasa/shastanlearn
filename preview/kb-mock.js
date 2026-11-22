@@ -112,7 +112,7 @@
         SiteTitle: 'پایگاه دانش شستان', SiteSubtitle: 'شرکت سرمایه‌گذاری تجاری شستان', HeroTitle: 'هر آنچه برای رشد و یادگیری لازم دارید',
         HeroText: 'مقالات، ویدیوها، پادکست‌ها و راهنماهای سازمانی شستان را جستجو کنید، بیاموزید و تجربه‌های خود را به اشتراک بگذارید.',
         FooterText: '', Copyright: 'شرکت سرمایه‌گذاری تجاری شستان', CommentsEnabled: 'true', CommentModeration: 'Post', NotifyEmails: 'hr@shastan.ir', DefaultVisibility: 'Public',
-        RegistrationEnabled: 'true', ADMode: 'Manual', ADDomain: 'ad.shastangroup.ir', ADContainer: 'OU=KB Users,OU=Shastan Portal,DC=ad,DC=shastangroup,DC=ir', ADUpnSuffix: '', ADGroup: 'KB-Members'
+        RegistrationEnabled: 'true', ADMode: 'Manual', ADDomain: 'shastan.local', ADContainer: 'OU=KB Users,DC=shastan,DC=local', ADUpnSuffix: '', LegacyHosts: 'srv-shp-web, learn.shastangroup.ir', ADGroup: 'KB-Members'
       },
       audit: [{ date: new Date(NOW - DAY).toISOString(), actor: 'منابع انسانی', action: 'Publish', contentId: 1, title: defs[0][0], details: '' }]
     };
@@ -127,9 +127,9 @@
   function role() { try { return localStorage.getItem(ROLE_KEY) || 'hr'; } catch (e) { return 'hr'; } }
   var USERS = {
     anonymous: null,
-    reader: { name: 'کاربر نمونه', email: 'demo@shastangroup.ir', login: 'demo', role: 'reader' },
-    hr: { name: 'منابع انسانی', email: 'hr@shastangroup.ir', login: 'hr', role: 'hr' },
-    admin: { name: 'مدیر سامانه', email: 'admin@shastangroup.ir', login: 'admin', role: 'admin' }
+    reader: { name: 'کاربر نمونه', email: 'demo@shastan.ir', login: 'demo', role: 'reader' },
+    hr: { name: 'منابع انسانی', email: 'hr@shastan.ir', login: 'hr', role: 'hr' },
+    admin: { name: 'مدیر سامانه', email: 'admin@shastan.ir', login: 'admin', role: 'admin' }
   };
   function me() { return USERS[role()] || null; }
   function isManager() { var u = me(); return !!u && (u.role === 'hr' || u.role === 'admin'); }
@@ -569,7 +569,7 @@
     if (!db.registrations) {
       db.registrations = [
         { id: 1, firstName: 'نیلوفر', lastName: 'کاظمی', fullName: 'نیلوفر کاظمی', userName: 'n.kazemi', mobile: '09121234567', company: 'پتروشیمی بوشهر', status: 'Pending', trackingCode: 'R-1405-0001', date: new Date(NOW - 3600000 * 3).toISOString(), reviewedBy: '', reviewedOn: null, note: '', adAccount: '', adError: '', password: 'Kb!2026pass' },
-        { id: 2, firstName: 'محمد', lastName: 'صادقی', fullName: 'محمد صادقی', userName: 'm.sadeghi', mobile: '09351112233', company: '', status: 'Created', trackingCode: 'R-1405-0002', date: new Date(NOW - DAY * 2).toISOString(), reviewedBy: 'مدیر سامانه', reviewedOn: new Date(NOW - DAY).toISOString(), note: '', adAccount: 'm.sadeghi@ad.shastangroup.ir', adError: '' }
+        { id: 2, firstName: 'محمد', lastName: 'صادقی', fullName: 'محمد صادقی', userName: 'm.sadeghi', mobile: '09351112233', company: '', status: 'Created', trackingCode: 'R-1405-0002', date: new Date(NOW - DAY * 2).toISOString(), reviewedBy: 'مدیر سامانه', reviewedOn: new Date(NOW - DAY).toISOString(), note: '', adAccount: 'm.sadeghi@shastan.local', adError: '' }
       ];
       db.nextReg = 3;
     }

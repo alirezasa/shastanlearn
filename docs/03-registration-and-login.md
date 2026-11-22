@@ -1,6 +1,6 @@
 # ثبت‌نام کاربران و صفحه‌ی ورود اختصاصی
 
-> این راهنما مکمل [`02-deployment.md`](02-deployment.md) است. سایت: `https://testlearn.shastangroup.ir`، دامنه: `ad.shastangroup.ir`.
+> این راهنما مکمل [`02-deployment.md`](02-deployment.md) است. سایت: `https://learn.shastan.ir`، دامنه: `shastan.local`.
 
 ---
 
@@ -48,9 +48,9 @@ cd C:\Deploy\kb\provisioning
 "Registration": {
   "Enabled": true,
   "ADMode": "Manual",
-  "ADDomain": "ad.shastangroup.ir",
-  "ADContainer": "OU=KB Users,DC=ad,DC=shastangroup,DC=ir",
-  "ADUpnSuffix": "ad.shastangroup.ir",
+  "ADDomain": "shastan.local",
+  "ADContainer": "OU=KB Users,DC=shastan,DC=local",
+  "ADUpnSuffix": "shastan.local",
   "ADGroup": ""
 }
 ```
@@ -71,10 +71,10 @@ cd C:\Deploy\kb\provisioning
 
 **الف) حساب App Pool را پیدا کنید**
 ```powershell
-(Get-SPWebApplication "https://testlearn.shastangroup.ir").ApplicationPool.Username
+(Get-SPWebApplication "https://learn.shastan.ir").ApplicationPool.Username
 ```
 
-**ب) OU مقصد را بسازید** (مثلاً `OU=KB Users,DC=ad,DC=shastangroup,DC=ir`).
+**ب) OU مقصد را بسازید** (مثلاً `OU=KB Users,DC=shastan,DC=local`).
 
 **ج) Delegate Control روی همان OU** (Active Directory Users and Computers ← راست‌کلیک روی OU ← Delegate Control ← حساب App Pool):
 - ☑ Create, delete, and manage user accounts
@@ -82,19 +82,19 @@ cd C:\Deploy\kb\provisioning
 
 یا با دستور (جای `SHASTAN\svc-sp-app` حساب App Pool را بگذارید):
 ```cmd
-dsacls "OU=KB Users,DC=ad,DC=shastangroup,DC=ir" /I:T /G "SHASTAN\svc-sp-app:CCDC;user"
-dsacls "OU=KB Users,DC=ad,DC=shastangroup,DC=ir" /I:S /G "SHASTAN\svc-sp-app:CA;Reset Password;user"
-dsacls "OU=KB Users,DC=ad,DC=shastangroup,DC=ir" /I:S /G "SHASTAN\svc-sp-app:WP;;user"
+dsacls "OU=KB Users,DC=shastan,DC=local" /I:T /G "SHASTAN\svc-sp-app:CCDC;user"
+dsacls "OU=KB Users,DC=shastan,DC=local" /I:S /G "SHASTAN\svc-sp-app:CA;Reset Password;user"
+dsacls "OU=KB Users,DC=shastan,DC=local" /I:S /G "SHASTAN\svc-sp-app:WP;;user"
 ```
 
 **د) گروه کاربران جدید (اختیاری)** — اگر `ADGroup` تنظیم شده (مثلاً `KB-Members`)، حساب App Pool باید عضویت آن گروه را تغییر دهد:
 ```cmd
-dsacls "CN=KB-Members,OU=Groups,DC=ad,DC=shastangroup,DC=ir" /G "SHASTAN\svc-sp-app:WP;member"
+dsacls "CN=KB-Members,OU=Groups,DC=shastan,DC=local" /G "SHASTAN\svc-sp-app:WP;member"
 ```
 
 **هـ)** پنل ← تنظیمات سامانه: «ایجاد حساب پس از تأیید» = **خودکار**، دامنه و OU را وارد و ذخیره کنید.
 از این پس دکمه‌ی «تأیید و ایجاد حساب» کاربر را با همان رمز انتخابی‌اش می‌سازد (فعال، همراه `mobile`، شرکت `company`، UPN
-`user@ad.shastangroup.ir`). اگر خطایی رخ دهد (مثلاً مجوز یا سیاست رمز)، متن خطا کنار درخواست نمایش داده می‌شود و همچنان
+`user@shastan.local`). اگر خطایی رخ دهد (مثلاً مجوز یا سیاست رمز)، متن خطا کنار درخواست نمایش داده می‌شود و همچنان
 می‌توانید «ایجاد دستی» را انتخاب کنید. رمز عبور از طریق Kerberos با رمزنگاری کانال (Sealing) تنظیم می‌شود؛ LDAPS لازم نیست.
 
 ---
@@ -111,18 +111,18 @@ dsacls "CN=KB-Members,OU=Groups,DC=ad,DC=shastangroup,DC=ir" /G "SHASTAN\svc-sp-
 ```xml
 <add name="KBLdapMember"
      type="Microsoft.Office.Server.Security.LdapMembershipProvider, Microsoft.Office.Server, Version=16.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c"
-     server="ad.shastangroup.ir" port="389" useSSL="false"
+     server="shastan.local" port="389" useSSL="false"
      connectionUsername="SHASTAN\svc-sp-ldap" connectionPassword="********"
      userDNAttribute="distinguishedName" userNameAttribute="sAMAccountName"
-     userContainer="DC=ad,DC=shastangroup,DC=ir" userObjectClass="person"
+     userContainer="DC=shastan,DC=local" userObjectClass="person"
      userFilter="(&amp;(objectClass=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
      scope="Subtree" otherRequiredUserAttributes="sn,givenname,cn,mail" />
 
 <add name="KBLdapRole"
      type="Microsoft.Office.Server.Security.LdapRoleProvider, Microsoft.Office.Server, Version=16.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c"
-     server="ad.shastangroup.ir" port="389" useSSL="false"
+     server="shastan.local" port="389" useSSL="false"
      connectionUsername="SHASTAN\svc-sp-ldap" connectionPassword="********"
-     groupContainer="DC=ad,DC=shastangroup,DC=ir" groupNameAttribute="cn" groupNameAlternateSearchAttribute="samAccountName"
+     groupContainer="DC=shastan,DC=local" groupNameAttribute="cn" groupNameAlternateSearchAttribute="samAccountName"
      groupMemberAttribute="member" userNameAttribute="sAMAccountName" dnAttribute="distinguishedName"
      groupFilter="(&amp;(objectClass=group))" userFilter="(&amp;(objectClass=person))" scope="Subtree" />
 ```

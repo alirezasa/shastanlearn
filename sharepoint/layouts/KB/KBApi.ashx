@@ -53,7 +53,7 @@ namespace Shastan.KB
 
         private static readonly string[] PublicSettingKeys = { "SiteTitle", "SiteSubtitle", "HeroTitle", "HeroText", "FooterText", "Copyright", "CommentsEnabled", "CommentModeration", "RegistrationEnabled" };
         private static readonly string[] EditableSettingKeys = { "SiteTitle", "SiteSubtitle", "HeroTitle", "HeroText", "FooterText", "Copyright", "CommentsEnabled", "CommentModeration", "NotifyEmails", "DefaultVisibility",
-            "RegistrationEnabled", "ADMode", "ADDomain", "ADContainer", "ADGroup", "ADUpnSuffix" };
+            "RegistrationEnabled", "ADMode", "ADDomain", "ADContainer", "ADGroup", "ADUpnSuffix", "LegacyHosts" };
         private static readonly string[] LogicalFields = { "Title", "Summary", "Body", "ThumbnailUrl", "ContentType", "Category", "Views", "ReadingMinutes", "IsFeatured", "AuthorName", "AuthorBio", "AuthorImageUrl", "PublishAt", "Visibility", "Status", "Tags", "MediaUrl", "LikesCount", "CommentsCount", "AllowComments" };
         private static readonly string[] DefaultTypes = { "مقاله", "ویدیو", "پادکست", "راهنما و آموزش", "گزارش", "گزارش تصویری", "سند و فایل", "خبر", "اینفوگرافیک", "پرسش و پاسخ" };
         private static readonly object Sync = new object();
@@ -95,6 +95,8 @@ namespace Shastan.KB
             public string MediaUrl;
             public string MediaTitle;
             public long MaxUploadMb;
+            /// <summary>نام‌های میزبان این Web Application (AAM) و نشانی‌های قدیمی (تنظیم LegacyHosts)؛ نشانی مطلق روی این‌ها نسبی می‌شود.</summary>
+            public HashSet<string> LocalHosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
 
         private class Entry
@@ -287,6 +289,20 @@ namespace Shastan.KB
                 SPList list = web.Lists.TryGetList(target.ContentList);
                 if (list == null) throw new ApiException(500, "لیست محتوا («" + target.ContentList + "») یافت نشد.");
                 target.ContentListUrl = list.RootFolder.ServerRelativeUrl.TrimEnd('/');
+                try
+                {
+                    foreach (SPAlternateUrl aam in web.Site.WebApplication.AlternateUrls)
+                        if (aam.Uri != null) target.LocalHosts.Add(aam.Uri.Host);
+                }
+                catch { }
+                foreach (string h in Setting(target, "LegacyHosts", "").Split(new[] { ',', ';', ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string host = h.Trim();
+                    Uri hu;
+                    if (Uri.TryCreate(host, UriKind.Absolute, out hu)) host = hu.Host;
+                    host = host.Split('/')[0].Split(':')[0];
+                    if (host.Length > 0) target.LocalHosts.Add(host);
+                }
 
                 Dictionary<string, string> map = new Dictionary<string, string>();
                 string json = Setting(target, "FieldMap", "");
@@ -573,10 +589,22 @@ namespace Shastan.KB
         {
             if (string.IsNullOrEmpty(url)) return "";
             Uri u;
-            if (Uri.TryCreate(url, UriKind.Absolute, out u) && (u.Scheme == "http" || u.Scheme == "https") &&
-                string.Equals(u.Host, req.Url.Host, StringComparison.OrdinalIgnoreCase))
+            if (Uri.TryCreate(url, UriKind.Absolute, out u) && (u.Scheme == "http" || u.Scheme == "https") && IsLocalHost(u.Host))
                 return u.PathAndQuery;
             return url;
+        }
+
+        private bool IsLocalHost(string host)
+        {
+            return string.Equals(host, req.Url.Host, StringComparison.OrdinalIgnoreCase) || (cfg != null && cfg.LocalHosts.Contains(host));
+        }
+
+        /// <summary>src/href مطلق روی میزبان‌های همین سامانه (نشانی فعلی، AAM و LegacyHosts) نسبی می‌شود تا بعد از تغییر دامنه نشکند.</summary>
+        private string LocalizeLinks(string html)
+        {
+            if (string.IsNullOrEmpty(html) || html.IndexOf("://", StringComparison.Ordinal) < 0) return html ?? "";
+            return Regex.Replace(html, "(\\b(?:src|href)\\s*=\\s*[\"']?)https?://([^/\"'\\s:>]+)(?::\\d+)?(?=/)", m =>
+                IsLocalHost(m.Groups[2].Value) ? m.Groups[1].Value : m.Value, RegexOptions.IgnoreCase);
         }
 
         /// <summary>پیوست‌های لیست محتوا مستقیماً قابل دریافت نیستند؛ از طریق همین هندلر (با بررسی دسترسی) سرو می‌شوند.</summary>
@@ -599,6 +627,7 @@ namespace Shastan.KB
         private string RewriteBody(string html)
         {
             if (string.IsNullOrEmpty(html)) return "";
+            html = LocalizeLinks(html);
             string pattern = "(?:https?://[^/\"'\\s]+)?" + Regex.Escape(cfg.ContentListUrl) + "/Attachments/(\\d+)/([^\"'\\s<>?#]+)";
             string handler = HandlerUrl;
             return Regex.Replace(html, pattern, m => handler + "?action=file&amp;cid=" + m.Groups[1].Value + "&amp;name=" +
