@@ -32,6 +32,8 @@ param(
   [string[]]$OldHosts,
   # سایت قدیمی (روی همین فارم) برای تطبیق شناسه‌ها؛ اگر در دسترس نیست خالی بگذارید
   [string]$SourceSiteUrl,
+  # وقتی سایت قدیم در فارم دیگری است: نگاشت دستی شناسه‌ی قدیم → جدید محتوا، مثلاً @{ 5 = 3; 7 = 4 }
+  [hashtable]$IdMap,
   # نام NetBIOS دامنه‌ی قدیم و جدید برای تبدیل حساب کاربران (مثلاً AD و SHASTAN)
   [string]$OldDomain,
   [string]$NewDomain,
@@ -230,6 +232,10 @@ if ($SourceSiteUrl) {
   } else { Write-Ok 'نشانه‌ای از تغییر شناسه‌ها دیده نشد' }
 }
 
+if ($IdMap) {
+  foreach ($k in $IdMap.Keys) { if ([int]$k -ne [int]$IdMap[$k]) { $idMap[[int]$k] = [int]$IdMap[$k] } }
+  Write-Note "نگاشت دستی شناسه‌ها: $(($idMap.Keys | Sort-Object | ForEach-Object { "$_→$($idMap[$_])" }) -join '، ')"
+}
 function Map-Id([int]$id) { if ($idMap.ContainsKey($id)) { return [int]$idMap[$id] } return $id }
 
 # ---------------------------------------------------------------- ۳ و ۴ (ب). بازنویسی نشانی‌ها و پیوست‌ها در محتوا
