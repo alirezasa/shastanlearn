@@ -35,6 +35,8 @@ param(
   # نام NetBIOS دامنه‌ی قدیم و جدید برای تبدیل حساب کاربران (مثلاً AD و SHASTAN)
   [string]$OldDomain,
   [string]$NewDomain,
+  # بدون پرسش ادامه بده حتی اگر لیست محتوا خالی است (نصب تازه، بدون انتقال داده)
+  [switch]$AllowEmpty,
   # اعضای دامنه‌ی قدیم از گروه‌های KB-Admins / KB-HR / KB-Readers حذف شوند (فقط با -OldDomain)
   [switch]$RemoveOldMembers,
   # محتوای اختصاصیِ بدون مخاطب به این گروه/کاربر مجوز مشاهده بگیرد (مثلاً KB-Readers = همه‌ی کاربران دامنه، یا SHASTAN\Managers)
@@ -75,6 +77,20 @@ if (-not $OldHosts) { $OldHosts = @($config.LegacyHosts) }
 $OldHosts = @($OldHosts | Where-Object { $_ } | ForEach-Object { ([string]$_).Trim().ToLower() } |
   Where-Object { $_ -and $aamHosts -notcontains $_ } | Select-Object -Unique)
 Write-Host "    نشانی‌های قدیمی: $(if ($OldHosts) { $OldHosts -join ', ' } else { '(هیچ)' })"
+
+# داده هنوز منتقل نشده؟ اگر ستون‌ها قبل از ShareGate ساخته شوند، ShareGate ستون‌های قدیمی را کنار آن‌ها می‌سازد
+# و داده در ستون‌هایی می‌نشیند که سامانه نمی‌خواند.
+$probe = $web.Lists.TryGetList($config.ContentList)
+$isEmpty = (-not $probe) -or ($probe.ItemCount -eq 0)
+if ($isEmpty) {
+  Write-Host ''
+  Write-Note "لیست $($config.ContentList) $(if ($probe) { 'خالی است' } else { 'وجود ندارد' })؛ یعنی داده‌ها هنوز با ShareGate منتقل نشده‌اند."
+  Write-Note 'ترتیب درست: اول ShareGate (همه‌ی لیست‌ها و DocLib)، بعد همین اسکریپت. اگر نصب تازه بدون انتقال داده است، -AllowEmpty بزنید.'
+  if (-not $WhatIfOnly -and -not $AllowEmpty) {
+    $answer = Read-Host 'با وجود این ادامه می‌دهید؟ (y/n)'
+    if ($answer -notmatch '^(y|yes|بله)$') { $web.Dispose(); Write-Host 'متوقف شد؛ تغییری اعمال نشد.' -ForegroundColor Yellow; return }
+  }
+}
 $web.Dispose()
 
 # ---------------------------------------------------------------- ۱. نصب ساختار
@@ -350,7 +366,7 @@ if ($OldDomain) {
 }
 $web.Dispose()
 
-if ($WhatIfOnly) { Write-Note "`nحالت WhatIfOnly: تغییری اعمال نشد."; return }
+if ($WhatIfOnly) { Write-Host ''; Write-Note 'حالت WhatIfOnly: تغییری اعمال نشد.'; return }
 
 # ---------------------------------------------------------------- ۶. سرویس، صفحات و آزمون
 if (-not $SkipDeploy) {

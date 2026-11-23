@@ -123,6 +123,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 | `-OldDomain` / `-NewDomain` | تبدیل `i:0#.w\|ad\ali` ← `i:0#.w\|shastan\ali` در نظرها و پسندها |
 | `-GrantExistingPrivateTo` | محتوای اختصاصیِ بدون مخاطب به این گروه/کاربر مجوز مشاهده بگیرد |
 | `-RemoveOldMembers` | حذف اعضای دامنه‌ی قدیم از گروه‌های KB-* (با `-OldDomain`) |
+| `-AllowEmpty` | اجرا بدون پرسش وقتی لیست محتوا خالی است (نصب تازه بدون انتقال داده). **ترتیب درست: اول ShareGate، بعد اسکریپت** |
 | `-SkipInstall` / `-SkipDeploy` | اجرا نکردن Install-KBPortal / اجرا نکردن Install-KBLayouts + Deploy-KBFiles + آزمون |
 
 اسکریپت به‌ترتیب: ساختار و مجوزها (`Install-KBPortal.ps1`؛ دسترسی ناشناس همه‌ی Zoneها)، بازنویسی تنظیمات دامنه و
