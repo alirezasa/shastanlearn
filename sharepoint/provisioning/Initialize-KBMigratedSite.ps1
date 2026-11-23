@@ -235,12 +235,19 @@ function Map-Id([int]$id) { if ($idMap.ContainsKey($id)) { return [int]$idMap[$i
 # ---------------------------------------------------------------- ۳ و ۴ (ب). بازنویسی نشانی‌ها و پیوست‌ها در محتوا
 Write-Step "نشانی‌های قدیمی در $($config.ContentList)"
 $hostRx = if ($OldHosts) { '(?i)https?://(?:' + (($OldHosts | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')(?::\d+)?(?=/)' } else { $null }
-$attRx = '(?i)(' + [regex]::Escape($contentList.RootFolder.ServerRelativeUrl.TrimEnd('/')) + '/Attachments/)(\d+)(?=/)'
+$listRoot = $contentList.RootFolder.ServerRelativeUrl.TrimEnd('/')
+$attRx = '(?i)(' + [regex]::Escape($listRoot) + '/Attachments/)(\d+)(?=/)'
+# نشانی لیست محتوا در سایت قدیم (مثلاً /Lists/KnowledgeContent2) اگر با مقصد فرق دارد → نشانی لیست مقصد
+$oldListRoots = @($config.LegacyContentListUrls | Where-Object { $_ } | ForEach-Object { '/' + ([string]$_).Trim().Trim('/') } |
+  Where-Object { $_ -ine $listRoot } | Select-Object -Unique)
+$pathRx = if ($oldListRoots) { '(?i)(?:' + (($oldListRoots | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')(?=/)' } else { $null }
+Write-Host "    نشانی لیست محتوا در مقصد: $listRoot$(if ($oldListRoots) { '   (نشانی‌های قدیمی که تبدیل می‌شوند: ' + ($oldListRoots -join ', ') + ')' })"
 
 function Fix-Text([string]$s) {
   if ([string]::IsNullOrEmpty($s)) { return $s }
   $r = $s
   if ($hostRx) { $r = [regex]::Replace($r, $hostRx, '') }
+  if ($pathRx) { $r = [regex]::Replace($r, $pathRx, $listRoot) }
   if ($idMap.Count) { $r = [regex]::Replace($r, $attRx, { param($m) $m.Groups[1].Value + (Map-Id ([int]$m.Groups[2].Value)) }) }
   return $r
 }
@@ -248,6 +255,7 @@ function Fix-Url([string]$s) {
   if ([string]::IsNullOrEmpty($s)) { return $s }
   $r = $s
   if ($hostRx) { $r = [regex]::Replace($r, $hostRx, $newBase) }
+  if ($pathRx) { $r = [regex]::Replace($r, $pathRx, $listRoot) }
   if ($idMap.Count) { $r = [regex]::Replace($r, $attRx, { param($m) $m.Groups[1].Value + (Map-Id ([int]$m.Groups[2].Value)) }) }
   return $r
 }
