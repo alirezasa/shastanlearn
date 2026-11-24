@@ -72,7 +72,7 @@
   "AdminsMembers": ["SHASTAN\\KB-Admins"],
   "HRMembers": [],
   "ReadersMembers": ["c:0(.s|true"],
-  "AutoSignIn": "Internal",
+  "AutoSignIn": "Off",
   "Registration": { "Enabled": false, ... },
   "LegacyHosts": ["srv-shp-web", "learn.shastangroup.ir", "testlearn.shastangroup.ir"]
 }
@@ -85,7 +85,7 @@
 | `Zone: "Auto"` | دسترسی ناشناس (برای محتوای عمومی) روی **همه‌ی Zoneهای** این وب‌اپلیکیشن فعال می‌شود |
 | `SHASTAN\...` | با خروجی `NetBIOSName` بخش ۱ جایگزین کنید |
 | `ReadersMembers` | `KB-Readers` = همه‌ی کاربران واردشده؛ فقط برای «همه‌ی کاربران دامنه» در مخاطبان محتوای اختصاصی استفاده می‌شود |
-| `AutoSignIn` | `Internal` = کاربر ناشناس از شبکه‌ی داخلی (IP خصوصی) خودکار با حساب ویندوز وارد می‌شود؛ `Always` = همیشه؛ `Off` = خاموش |
+| `AutoSignIn` | `Off` (پیش‌فرض) = همه بدون ورود صفحه و محتوای عمومی را می‌بینند و هر کس بخواهد «ورود» را می‌زند؛ `Internal` = کاربر ناشناس از شبکه‌ی داخلی (IP خصوصی) خودکار با حساب ویندوز وارد می‌شود؛ `Always` = همیشه. **این مقدار در هر اجرای `Initialize-KBMigratedSite.ps1` روی KBSettings نوشته می‌شود.** |
 | `Registration.Enabled` | `false` = دکمه‌ی ثبت‌نام و منوی «ثبت‌نام کاربران» پنهان است |
 
 ## ۴. اجرای اسکریپت

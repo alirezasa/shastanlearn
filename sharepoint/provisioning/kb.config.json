@@ -32,7 +32,7 @@
   "CommentModeration": "Post",
   "NotifyEmails": "ICT@SHASTAN.IR",
 
-  "AutoSignIn": "Internal",
+  "AutoSignIn": "Off",
 
   "Registration": {
     "Enabled": false,
