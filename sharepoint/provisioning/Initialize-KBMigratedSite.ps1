@@ -32,9 +32,13 @@ param(
   [string[]]$OldHosts,
   # سایت قدیمی (روی همین فارم) برای تطبیق شناسه‌ها؛ اگر در دسترس نیست خالی بگذارید
   [string]$SourceSiteUrl,
+  # وقتی سایت قدیم در فارم دیگری است: نگاشت دستی شناسه‌ی قدیم → جدید محتوا، مثلاً @{ 5 = 3; 7 = 4 }
+  [hashtable]$IdMap,
   # نام NetBIOS دامنه‌ی قدیم و جدید برای تبدیل حساب کاربران (مثلاً AD و SHASTAN)
   [string]$OldDomain,
   [string]$NewDomain,
+  # بدون پرسش ادامه بده حتی اگر لیست محتوا خالی است (نصب تازه، بدون انتقال داده)
+  [switch]$AllowEmpty,
   # اعضای دامنه‌ی قدیم از گروه‌های KB-Admins / KB-HR / KB-Readers حذف شوند (فقط با -OldDomain)
   [switch]$RemoveOldMembers,
   # محتوای اختصاصیِ بدون مخاطب به این گروه/کاربر مجوز مشاهده بگیرد (مثلاً KB-Readers = همه‌ی کاربران دامنه، یا SHASTAN\Managers)
@@ -75,6 +79,20 @@ if (-not $OldHosts) { $OldHosts = @($config.LegacyHosts) }
 $OldHosts = @($OldHosts | Where-Object { $_ } | ForEach-Object { ([string]$_).Trim().ToLower() } |
   Where-Object { $_ -and $aamHosts -notcontains $_ } | Select-Object -Unique)
 Write-Host "    نشانی‌های قدیمی: $(if ($OldHosts) { $OldHosts -join ', ' } else { '(هیچ)' })"
+
+# داده هنوز منتقل نشده؟ اگر ستون‌ها قبل از ShareGate ساخته شوند، ShareGate ستون‌های قدیمی را کنار آن‌ها می‌سازد
+# و داده در ستون‌هایی می‌نشیند که سامانه نمی‌خواند.
+$probe = $web.Lists.TryGetList($config.ContentList)
+$isEmpty = (-not $probe) -or ($probe.ItemCount -eq 0)
+if ($isEmpty) {
+  Write-Host ''
+  Write-Note "لیست $($config.ContentList) $(if ($probe) { 'خالی است' } else { 'وجود ندارد' })؛ یعنی داده‌ها هنوز با ShareGate منتقل نشده‌اند."
+  Write-Note 'ترتیب درست: اول ShareGate (همه‌ی لیست‌ها و DocLib)، بعد همین اسکریپت. اگر نصب تازه بدون انتقال داده است، -AllowEmpty بزنید.'
+  if (-not $WhatIfOnly -and -not $AllowEmpty) {
+    $answer = Read-Host 'با وجود این ادامه می‌دهید؟ (y/n)'
+    if ($answer -notmatch '^(y|yes|بله)$') { $web.Dispose(); Write-Host 'متوقف شد؛ تغییری اعمال نشد.' -ForegroundColor Yellow; return }
+  }
+}
 $web.Dispose()
 
 # ---------------------------------------------------------------- ۱. نصب ساختار
@@ -214,17 +232,28 @@ if ($SourceSiteUrl) {
   } else { Write-Ok 'نشانه‌ای از تغییر شناسه‌ها دیده نشد' }
 }
 
+if ($IdMap) {
+  foreach ($k in $IdMap.Keys) { if ([int]$k -ne [int]$IdMap[$k]) { $idMap[[int]$k] = [int]$IdMap[$k] } }
+  Write-Note "نگاشت دستی شناسه‌ها: $(($idMap.Keys | Sort-Object | ForEach-Object { "$_→$($idMap[$_])" }) -join '، ')"
+}
 function Map-Id([int]$id) { if ($idMap.ContainsKey($id)) { return [int]$idMap[$id] } return $id }
 
 # ---------------------------------------------------------------- ۳ و ۴ (ب). بازنویسی نشانی‌ها و پیوست‌ها در محتوا
 Write-Step "نشانی‌های قدیمی در $($config.ContentList)"
 $hostRx = if ($OldHosts) { '(?i)https?://(?:' + (($OldHosts | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')(?::\d+)?(?=/)' } else { $null }
-$attRx = '(?i)(' + [regex]::Escape($contentList.RootFolder.ServerRelativeUrl.TrimEnd('/')) + '/Attachments/)(\d+)(?=/)'
+$listRoot = $contentList.RootFolder.ServerRelativeUrl.TrimEnd('/')
+$attRx = '(?i)(' + [regex]::Escape($listRoot) + '/Attachments/)(\d+)(?=/)'
+# نشانی لیست محتوا در سایت قدیم (مثلاً /Lists/KnowledgeContent2) اگر با مقصد فرق دارد → نشانی لیست مقصد
+$oldListRoots = @($config.LegacyContentListUrls | Where-Object { $_ } | ForEach-Object { '/' + ([string]$_).Trim().Trim('/') } |
+  Where-Object { $_ -ine $listRoot } | Select-Object -Unique)
+$pathRx = if ($oldListRoots) { '(?i)(?:' + (($oldListRoots | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')(?=/)' } else { $null }
+Write-Host "    نشانی لیست محتوا در مقصد: $listRoot$(if ($oldListRoots) { '   (نشانی‌های قدیمی که تبدیل می‌شوند: ' + ($oldListRoots -join ', ') + ')' })"
 
 function Fix-Text([string]$s) {
   if ([string]::IsNullOrEmpty($s)) { return $s }
   $r = $s
   if ($hostRx) { $r = [regex]::Replace($r, $hostRx, '') }
+  if ($pathRx) { $r = [regex]::Replace($r, $pathRx, $listRoot) }
   if ($idMap.Count) { $r = [regex]::Replace($r, $attRx, { param($m) $m.Groups[1].Value + (Map-Id ([int]$m.Groups[2].Value)) }) }
   return $r
 }
@@ -232,6 +261,7 @@ function Fix-Url([string]$s) {
   if ([string]::IsNullOrEmpty($s)) { return $s }
   $r = $s
   if ($hostRx) { $r = [regex]::Replace($r, $hostRx, $newBase) }
+  if ($pathRx) { $r = [regex]::Replace($r, $pathRx, $listRoot) }
   if ($idMap.Count) { $r = [regex]::Replace($r, $attRx, { param($m) $m.Groups[1].Value + (Map-Id ([int]$m.Groups[2].Value)) }) }
   return $r
 }
@@ -350,7 +380,7 @@ if ($OldDomain) {
 }
 $web.Dispose()
 
-if ($WhatIfOnly) { Write-Note "`nحالت WhatIfOnly: تغییری اعمال نشد."; return }
+if ($WhatIfOnly) { Write-Host ''; Write-Note 'حالت WhatIfOnly: تغییری اعمال نشد.'; return }
 
 # ---------------------------------------------------------------- ۶. سرویس، صفحات و آزمون
 if (-not $SkipDeploy) {

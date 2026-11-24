@@ -43,5 +43,6 @@
     "ADGroup": ""
   },
 
+  "LegacyContentListUrls": ["/Lists/KnowledgeContent2", "/Lists/KnowledgeContent"],
   "LegacyHosts": ["srv-shp-web", "learn.shastangroup.ir", "testlearn.shastangroup.ir"]
 }
