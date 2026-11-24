@@ -166,7 +166,7 @@ function Key-Of($it) {
   return ([string]$it['Title']).Trim().ToLower() + '|' + $created
 }
 
-$idMap = @{}         # شناسه‌ی قدیم محتوا → شناسه‌ی جدید
+$cidMap = @{}         # شناسه‌ی قدیم محتوا → شناسه‌ی جدید
 $commentMap = @{}    # شناسه‌ی قدیم نظر → شناسه‌ی جدید
 Write-Step 'بررسی شناسه‌های محتوا'
 $newItems = @(Get-Items $contentList)
@@ -192,7 +192,7 @@ if ($SourceSiteUrl) {
       $t = ([string]$old['Title']).Trim().ToLower()
       if ($byTitle.ContainsKey($t) -and $byTitle[$t] -gt 0) { $byTitle[$t] } else { 0 }
     }
-    if ($nid -gt 0) { if ($nid -ne $old.ID) { $idMap[$old.ID] = $nid } } else { $unmatched++ }
+    if ($nid -gt 0) { if ($nid -ne $old.ID) { $cidMap[$old.ID] = $nid } } else { $unmatched++ }
   }
   if ($unmatched) { Write-Note "$unmatched محتوای سایت قدیم در مقصد پیدا نشد (حذف‌شده یا عنوان تکراری)." }
 
@@ -210,11 +210,11 @@ if ($SourceSiteUrl) {
     }
   }
   $src.Dispose()
-  if ($idMap.Count -or $commentMap.Count) { Write-Note "شناسه‌ی $($idMap.Count) محتوا و $($commentMap.Count) نظر در مقصد تغییر کرده است؛ ارجاع‌ها اصلاح می‌شوند." }
+  if ($cidMap.Count -or $commentMap.Count) { Write-Note "شناسه‌ی $($cidMap.Count) محتوا و $($commentMap.Count) نظر در مقصد تغییر کرده است؛ ارجاع‌ها اصلاح می‌شوند." }
   else { Write-Ok 'شناسه‌ها با سایت قدیم یکسان است' }
 } else {
   # بدون سایت قدیم: ارجاع‌های بی‌صاحب و ناهمخوانی عنوان پسندها نشانه‌ی تغییر شناسه است
-  $orphans = 0; $mismatch = 0
+  $orphans = 0; $mismatch = 0; $orphanRows = @()
   $titles = @{}
   foreach ($it in $newItems) { $titles[$it.ID] = ([string]$it['Title']).Trim() }
   foreach ($name in @('KBComments', 'KBReactions', 'KBAuditLog')) {
@@ -222,21 +222,26 @@ if ($SourceSiteUrl) {
     if (-not $l) { continue }
     foreach ($r in (Get-Items $l)) {
       $cid = [int]$r['ContentId']
-      if ($cid -gt 0 -and -not $newIds.ContainsKey($cid)) { $orphans++ }
+      if ($cid -gt 0 -and -not $newIds.ContainsKey($cid)) {
+        $orphans++
+        $orphanRows += ("      {0,-12} #{1,-5} ContentId={2,-5} {3,-10} {4}" -f $name, $r.ID, $cid, [string]$r['Action'], [string]$r['Title'])
+      }
       elseif ($name -eq 'KBReactions' -and $cid -gt 0 -and [string]$r['Title'] -and ([string]$r['Title']).Trim() -ne $titles[$cid]) { $mismatch++ }
     }
   }
   if ($orphans -or $mismatch) {
-    Write-Note "$orphans ارجاع به محتوای ناموجود و $mismatch پسند با عنوان ناهمخوان پیدا شد؛ احتمالاً ShareGate شناسه‌ها را عوض کرده است."
-    Write-Note "اسکریپت را با -SourceSiteUrl <نشانی سایت قدیم> اجرا کنید تا ارجاع‌ها اصلاح شوند."
+    Write-Note "$orphans ارجاع به محتوای ناموجود و $mismatch پسند با عنوان ناهمخوان پیدا شد."
+    $orphanRows | ForEach-Object { Write-Host $_ }
+    Write-Note 'اگر این‌ها مربوط به محتوای حذف‌شده‌ی قبلی‌اند (مثلاً Delete در KBAuditLog) مشکلی نیست.'
+    Write-Note 'اگر ShareGate شماره‌ها را عوض کرده: سایت قدیم روی همین فارم → -SourceSiteUrl؛ روی فارم دیگر → -IdMap @{ قدیم = جدید }'
   } else { Write-Ok 'نشانه‌ای از تغییر شناسه‌ها دیده نشد' }
 }
 
-if ($IdMap) {
-  foreach ($k in $IdMap.Keys) { if ([int]$k -ne [int]$IdMap[$k]) { $idMap[[int]$k] = [int]$IdMap[$k] } }
-  Write-Note "نگاشت دستی شناسه‌ها: $(($idMap.Keys | Sort-Object | ForEach-Object { "$_→$($idMap[$_])" }) -join '، ')"
+if ($IdMap -and $IdMap.Count) {
+  foreach ($k in $IdMap.Keys) { if ([int]$k -ne [int]$IdMap[$k]) { $cidMap[[int]$k] = [int]$IdMap[$k] } }
+  Write-Note "نگاشت دستی شناسه‌ها: $(($cidMap.Keys | Sort-Object | ForEach-Object { "$_→$($cidMap[$_])" }) -join '، ')"
 }
-function Map-Id([int]$id) { if ($idMap.ContainsKey($id)) { return [int]$idMap[$id] } return $id }
+function Map-Id([int]$id) { if ($cidMap.ContainsKey($id)) { return [int]$cidMap[$id] } return $id }
 
 # ---------------------------------------------------------------- ۳ و ۴ (ب). بازنویسی نشانی‌ها و پیوست‌ها در محتوا
 Write-Step "نشانی‌های قدیمی در $($config.ContentList)"
@@ -254,7 +259,7 @@ function Fix-Text([string]$s) {
   $r = $s
   if ($hostRx) { $r = [regex]::Replace($r, $hostRx, '') }
   if ($pathRx) { $r = [regex]::Replace($r, $pathRx, $listRoot) }
-  if ($idMap.Count) { $r = [regex]::Replace($r, $attRx, { param($m) $m.Groups[1].Value + (Map-Id ([int]$m.Groups[2].Value)) }) }
+  if ($cidMap.Count) { $r = [regex]::Replace($r, $attRx, { param($m) $m.Groups[1].Value + (Map-Id ([int]$m.Groups[2].Value)) }) }
   return $r
 }
 function Fix-Url([string]$s) {
@@ -262,7 +267,7 @@ function Fix-Url([string]$s) {
   $r = $s
   if ($hostRx) { $r = [regex]::Replace($r, $hostRx, $newBase) }
   if ($pathRx) { $r = [regex]::Replace($r, $pathRx, $listRoot) }
-  if ($idMap.Count) { $r = [regex]::Replace($r, $attRx, { param($m) $m.Groups[1].Value + (Map-Id ([int]$m.Groups[2].Value)) }) }
+  if ($cidMap.Count) { $r = [regex]::Replace($r, $attRx, { param($m) $m.Groups[1].Value + (Map-Id ([int]$m.Groups[2].Value)) }) }
   return $r
 }
 
